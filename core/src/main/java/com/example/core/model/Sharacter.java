@@ -1,7 +1,6 @@
-package com.example.anipoll.model;
+package com.example.core.model;
 
-import com.fasterxml.jackson.annotation.JsonBackReference;
-
+import jakarta.json.bind.annotation.JsonbTransient;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
@@ -12,6 +11,6 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class Sharacter extends BaseEntity {
-    @JsonBackReference
+    @JsonbTransient
     private Anime anime;
 }

@@ -1,4 +1,4 @@
-package com.example.anipoll.model;
+package com.example.core.model;
 
 import java.time.LocalDateTime;
 
@@ -10,7 +10,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public abstract class BaseEntity {
-    private String id;
+    private Long id;
     private String name;
     private String description;
     private String image;
