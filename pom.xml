@@ -12,6 +12,8 @@
     <modules>
         <module>service-template</module>
         <module>quarkus-service-template</module>
+        <module>core</module>
+<!--        <module>chassis</module>-->
     </modules>
 
     <properties>

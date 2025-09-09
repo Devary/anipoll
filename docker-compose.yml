@@ -1,8 +1,35 @@
 version: '3.8'
 services:
-  quarkus-service-template:
-    build:
-      context: ./quarkus-service-template
-      dockerfile: src/main/docker/Dockerfile.jvm
+#  quarkus-service-template:
+#    build:
+#      context: ./quarkus-service-template
+#      dockerfile: src/main/docker/Dockerfile.jvm
+#    ports:
+#      - "8100:8100"
+  db_anipoll:
+    image: postgres:17
+    container_name: ap_database
+    volumes:
+      - dbscripts:/docker-entrypoint-initdb.d/
+    #      - postgresql:/var/lib/postgresql
+    #      - postgresql_data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+      PGUSER: postgres
     ports:
-      - "8100:8100"
+      - 5432:5432
+    networks:
+      - runvoteqs-network
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready", "-d", "quarkus_test","-u","postgres" ]
+      interval: 3s
+      timeout: 10s
+      retries: 4
+
+networks:
+  runvoteqs-network:
+    driver: bridge
+volumes:
+  dbscripts:
