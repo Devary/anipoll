@@ -34,7 +34,7 @@ public class SharacterService {
     }
 
     public Uni<Sharacter> save(Sharacter sharacter) {
-        return animeService.findById(sharacter.getAnime().getId()).onItem().transformToUni(anime -> {
+        return animeService.findById(sharacter.getAnimeId()).onItem().transformToUni(anime -> {
             if (anime == null) {
                 return Uni.createFrom().nullItem();
             }
@@ -43,7 +43,6 @@ public class SharacterService {
                 sharacter.setCreatedAt(LocalDateTime.now());
             }
             sharacter.setUpdatedAt(LocalDateTime.now());
-            sharacter.setAnime(anime);
             storage.put(sharacter.getId(), sharacter);
             anime.getSharacters().removeIf(s -> s.getId().equals(sharacter.getId()));
             anime.getSharacters().add(sharacter);
@@ -53,8 +52,14 @@ public class SharacterService {
 
     public Uni<Void> delete(Long id) {
         Sharacter removed = storage.remove(id);
-        if (removed != null && removed.getAnime() != null) {
-            removed.getAnime().getSharacters().removeIf(s -> s.getId().equals(id));
+        if (removed != null) {
+            return animeService.findById(removed.getAnimeId())
+                .onItem().invoke(anime -> {
+                    if (anime != null) {
+                        anime.getSharacters().removeIf(s -> s.getId().equals(id));
+                    }
+                })
+                .replaceWithVoid();
         }
         return Uni.createFrom().voidItem();
     }
