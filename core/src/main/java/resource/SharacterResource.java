@@ -1,6 +1,7 @@
 package resource;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 import jakarta.inject.Inject;
 import jakarta.ws.rs.DELETE;
@@ -12,6 +13,8 @@ import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 
+import dto.SharacterDto;
+import mapper.DtoMapper;
 import model.Sharacter;
 import service.SharacterService;
 
@@ -28,26 +31,32 @@ public class SharacterResource {
     }
 
     @GET
-    public Uni<List<Sharacter>> all() {
-        return sharacterService.findAll();
+    public Uni<List<SharacterDto>> all() {
+        return sharacterService.findAll()
+                .onItem().transform(sharacters -> sharacters.stream()
+                        .map(DtoMapper::toSharacterDto)
+                        .collect(Collectors.toList()));
     }
 
     @GET
     @Path("/{id}")
-    public Uni<Sharacter> get(@PathParam("id") int id) {
-        return sharacterService.findById(id);
+    public Uni<SharacterDto> get(@PathParam("id") int id) {
+        return sharacterService.findById(id)
+                .onItem().transform(DtoMapper::toSharacterDto);
     }
 
     @POST
-    public Uni<Sharacter> create(Sharacter sharacter) {
-        return sharacterService.save(sharacter);
+    public Uni<SharacterDto> create(Sharacter sharacter) {
+        return sharacterService.save(sharacter)
+                .onItem().transform(DtoMapper::toSharacterDto);
     }
 
     @PUT
     @Path("/{id}")
-    public Uni<Sharacter> update(@PathParam("id") int id, Sharacter sharacter) {
+    public Uni<SharacterDto> update(@PathParam("id") int id, Sharacter sharacter) {
         sharacter.setId(id);
-        return sharacterService.save(sharacter);
+        return sharacterService.save(sharacter)
+                .onItem().transform(DtoMapper::toSharacterDto);
     }
 
     @DELETE

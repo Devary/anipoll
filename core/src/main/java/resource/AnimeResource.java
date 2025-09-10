@@ -1,6 +1,7 @@
 package resource;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 import jakarta.inject.Inject;
 import jakarta.ws.rs.DELETE;
@@ -12,6 +13,8 @@ import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 
+import dto.AnimeDto;
+import mapper.DtoMapper;
 import model.Anime;
 import service.AnimeService;
 
@@ -28,26 +31,32 @@ public class AnimeResource {
     }
 
     @GET
-    public Uni<List<Anime>> all() {
-        return animeService.findAll();
+    public Uni<List<AnimeDto>> all() {
+        return animeService.findAll()
+                .onItem().transform(animes -> animes.stream()
+                        .map(DtoMapper::toAnimeDto)
+                        .collect(Collectors.toList()));
     }
 
     @GET
     @Path("/{id}")
-    public Uni<Anime> get(@PathParam("id") int id) {
-        return animeService.findById(id);
+    public Uni<AnimeDto> get(@PathParam("id") int id) {
+        return animeService.findById(id)
+                .onItem().transform(DtoMapper::toAnimeDto);
     }
 
     @POST
-    public Uni<Anime> create(Anime anime) {
-        return animeService.save(anime);
+    public Uni<AnimeDto> create(Anime anime) {
+        return animeService.save(anime)
+                .onItem().transform(DtoMapper::toAnimeDto);
     }
 
     @PUT
     @Path("/{id}")
-    public Uni<Anime> update(@PathParam("id") int id, Anime anime) {
+    public Uni<AnimeDto> update(@PathParam("id") int id, Anime anime) {
         anime.setId(id);
-        return animeService.save(anime);
+        return animeService.save(anime)
+                .onItem().transform(DtoMapper::toAnimeDto);
     }
 
     @DELETE

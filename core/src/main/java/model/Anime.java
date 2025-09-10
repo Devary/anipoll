@@ -1,7 +1,12 @@
 package model;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
+
 import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 
 import lombok.AllArgsConstructor;
@@ -17,4 +22,7 @@ import lombok.NoArgsConstructor;
 @Table(name = "anime")
 public class Anime extends BaseEntity {
     private LocalDate release;
+
+    @OneToMany(mappedBy = "anime", fetch = FetchType.EAGER)
+    private List<Sharacter> sharacters = new ArrayList<>();
 }
