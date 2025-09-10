@@ -16,6 +16,7 @@ import jakarta.ws.rs.core.MediaType;
 import dto.SharacterDto;
 import mapper.DtoMapper;
 import model.Sharacter;
+import service.AnimeService;
 import service.SharacterService;
 
 import io.smallrye.mutiny.Uni;
@@ -24,10 +25,12 @@ import io.smallrye.mutiny.Uni;
 @Produces(MediaType.APPLICATION_JSON)
 public class SharacterResource {
     private final SharacterService sharacterService;
+    private final AnimeService animeService;
 
     @Inject
-    public SharacterResource(SharacterService sharacterService) {
+    public SharacterResource(SharacterService sharacterService, AnimeService animeService) {
         this.sharacterService = sharacterService;
+        this.animeService = animeService;
     }
 
     @GET
@@ -47,16 +50,38 @@ public class SharacterResource {
 
     @POST
     public Uni<SharacterDto> create(Sharacter sharacter) {
-        return sharacterService.save(sharacter)
-                .onItem().transform(DtoMapper::toSharacterDto);
+        Integer animeId = sharacter.getAnimeId();
+        Uni<Sharacter> uni;
+        if (animeId != null && animeId != -1) {
+            uni = animeService.findById(animeId)
+                    .onItem().transformToUni(anime -> {
+                        sharacter.setAnime(anime);
+                        return sharacterService.save(sharacter);
+                    });
+        } else {
+            sharacter.setAnime(null);
+            uni = sharacterService.save(sharacter);
+        }
+        return uni.onItem().transform(DtoMapper::toSharacterDto);
     }
 
     @PUT
     @Path("/{id}")
     public Uni<SharacterDto> update(@PathParam("id") int id, Sharacter sharacter) {
         sharacter.setId(id);
-        return sharacterService.save(sharacter)
-                .onItem().transform(DtoMapper::toSharacterDto);
+        Integer animeId = sharacter.getAnimeId();
+        Uni<Sharacter> uni;
+        if (animeId != null && animeId != -1) {
+            uni = animeService.findById(animeId)
+                    .onItem().transformToUni(anime -> {
+                        sharacter.setAnime(anime);
+                        return sharacterService.save(sharacter);
+                    });
+        } else {
+            sharacter.setAnime(null);
+            uni = sharacterService.save(sharacter);
+        }
+        return uni.onItem().transform(DtoMapper::toSharacterDto);
     }
 
     @DELETE
