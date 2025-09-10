@@ -34,7 +34,7 @@ public class SharacterResource {
 
     @GET
     @Path("/{id}")
-    public Uni<Sharacter> get(@PathParam("id") Long id) {
+    public Uni<Sharacter> get(@PathParam("id") int id) {
         return sharacterService.findById(id);
     }
 
@@ -45,14 +45,14 @@ public class SharacterResource {
 
     @PUT
     @Path("/{id}")
-    public Uni<Sharacter> update(@PathParam("id") Long id, Sharacter sharacter) {
+    public Uni<Sharacter> update(@PathParam("id") int id, Sharacter sharacter) {
         sharacter.setId(id);
         return sharacterService.save(sharacter);
     }
 
     @DELETE
     @Path("/{id}")
-    public Uni<Void> delete(@PathParam("id") Long id) {
+    public Uni<Void> delete(@PathParam("id") int id) {
         return sharacterService.delete(id);
     }
 }

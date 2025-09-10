@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 import jakarta.enterprise.context.ApplicationScoped;
@@ -16,8 +17,8 @@ import io.smallrye.mutiny.Uni;
 
 @ApplicationScoped
 public class SharacterService {
-    private final Map<Long, Sharacter> storage = new ConcurrentHashMap<>();
-    private final AtomicLong counter = new AtomicLong(1);
+    private final Map<Integer, Sharacter> storage = new ConcurrentHashMap<>();
+    private final AtomicInteger counter = new AtomicInteger(1);
     private final AnimeService animeService;
 
     @Inject
@@ -29,7 +30,7 @@ public class SharacterService {
         return Uni.createFrom().item(() -> new ArrayList<>(storage.values()));
     }
 
-    public Uni<Sharacter> findById(Long id) {
+    public Uni<Sharacter> findById(int id) {
         return Uni.createFrom().item(storage.get(id));
     }
 
@@ -38,25 +39,25 @@ public class SharacterService {
             if (anime == null) {
                 return Uni.createFrom().nullItem();
             }
-            if (sharacter.getId() == null) {
+            if (sharacter.getId() == -1) {
                 sharacter.setId(counter.getAndIncrement());
                 sharacter.setCreatedAt(LocalDateTime.now());
             }
             sharacter.setUpdatedAt(LocalDateTime.now());
             storage.put(sharacter.getId(), sharacter);
-            anime.getSharacters().removeIf(s -> s.getId().equals(sharacter.getId()));
+            anime.getSharacters().removeIf(s -> s.getId() == sharacter.getId());
             anime.getSharacters().add(sharacter);
             return Uni.createFrom().item(sharacter);
         });
     }
 
-    public Uni<Void> delete(Long id) {
+    public Uni<Void> delete(int id) {
         Sharacter removed = storage.remove(id);
         if (removed != null) {
             return animeService.findById(removed.getAnimeId())
                 .onItem().invoke(anime -> {
                     if (anime != null) {
-                        anime.getSharacters().removeIf(s -> s.getId().equals(id));
+                        anime.getSharacters().removeIf(s -> s.getId()== id);
                     }
                 })
                 .replaceWithVoid();

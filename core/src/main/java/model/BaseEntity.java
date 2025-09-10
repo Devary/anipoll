@@ -10,7 +10,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public abstract class BaseEntity {
-    private Long id;
+    private int id;
     private String name;
     private String description;
     private String image;

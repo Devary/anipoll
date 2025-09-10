@@ -34,7 +34,7 @@ public class AnimeResource {
 
     @GET
     @Path("/{id}")
-    public Uni<Anime> get(@PathParam("id") Long id) {
+    public Uni<Anime> get(@PathParam("id") int id) {
         return animeService.findById(id);
     }
 
@@ -45,14 +45,14 @@ public class AnimeResource {
 
     @PUT
     @Path("/{id}")
-    public Uni<Anime> update(@PathParam("id") Long id, Anime anime) {
+    public Uni<Anime> update(@PathParam("id") int id, Anime anime) {
         anime.setId(id);
         return animeService.save(anime);
     }
 
     @DELETE
     @Path("/{id}")
-    public Uni<Void> delete(@PathParam("id") Long id) {
+    public Uni<Void> delete(@PathParam("id") int id) {
         return animeService.delete(id);
     }
 }

@@ -1,0 +1,131 @@
+<p-toolbar styleClass="mb-6">
+  <ng-template #start>
+    <p-button label="New" icon="pi pi-plus" severity="secondary" class="mr-2" (onClick)="openNew()" *ngIf="this.context().allowActions"/>
+    <p-button severity="secondary" label="Delete selected ({{!selectedObjects?0:selectedObjects.length}})" *ngIf="this.context().allowActions" icon="pi pi-trash" outlined (onClick)="deleteSelectedObjects()" [disabled]="(!selectedObjects || !selectedObjects.length)" />
+  </ng-template>
+
+  <ng-template #end>
+    <p-button label="Export" icon="pi pi-upload" severity="secondary" (onClick)="exportCSV()" />
+    <fa-icon [icon]="faCoffee"></fa-icon>
+  </ng-template>
+</p-toolbar>
+<p-table
+  #dt
+  [value]="objects()"
+  (onLazyLoad)="objects()"
+  (change)="objects()"
+  [paginator]="true"
+  [rows]="tablePageSize"
+  dataKey="id"
+  [tableStyle]="{ 'min-width': '50rem'}"
+  [rowsPerPageOptions]="[5, 10, 20]"
+  [showCurrentPageReport]="true"
+  [loading]="loading"
+  [rowHover]="true"
+  [globalFilterFields]="fieldsToShowStrings"
+  [(selection)]="selectedObjects"
+  [contextMenu]="true"
+  contextMenuSelectionMode="separate"
+  selectionMode="multiple"
+  currentPageReportTemplate="Showing {first} to {last} of {totalRecords} entries"
+>
+
+  <ng-template pTemplate="header">
+    <tr>
+      <th *ngFor="let field of fieldsToShow">
+        <div class="flex justify-content-center align-items-center">
+          {{ field.name  | titlecase}}
+        </div>
+      </th>
+      <th *ngIf="this.context().allowActions">Actions</th>
+    </tr>
+    <tr>
+      <th *ngFor="let field of fieldsToShow">
+        <p-columnFilter
+          type="text"
+          field="{{field.name}}"
+          placeholder="Search by {{field.name}}"
+          ariaLabel="Filter {{field.name}}"
+        ></p-columnFilter>
+      </th>
+      <th *ngIf="this.context().allowActions"></th>
+    </tr>
+  </ng-template>
+  <ng-template pTemplate="body" let-obj let-rowIndex="rowIndex">
+
+    <tr [pSelectableRow]="obj" [pSelectableRowIndex]="rowIndex">
+      <td *ngFor="let field of fieldsToShow">
+        <div *ngIf="field.isMultiSelect">
+          <p *ngIf="obj[field.name].length > 1">
+            <p-tag severity="warn" icon="pi pi-user" [style]="{color:'black'}" value="{{obj[field.name][0].name}}" />
+            <p-button icon="pi pi-list" severity="secondary" (onClick)="showMore(obj[field.name])" />
+          </p>
+          <div *ngIf="obj[field.name].length === 1">
+            <p *ngFor="let val of obj[field.name]">
+              <p-tag severity="warn" icon="pi pi-user" [style]="{color:'black'}" value="{{val.name}}" />
+            </p>
+          </div>
+        </div>
+        <div *ngIf="!field.isMultiSelect">
+          <p *ngIf="field.isTextEditor" [innerHTML]="obj[field.name]"></p>
+          <p *ngIf="field.isSelect && obj[field.name]">{{obj[field.name].name}}</p>
+          <p *ngIf="!field.isTextEditor && !field.isSelect">{{obj[field.name]}}</p>
+        </div>
+      </td>
+      <td *ngIf="this.context().allowActions"><p-button icon="pi pi-trash" severity="danger" (onClick)="delete(obj)" /><p-button icon="pi pi-pencil" severity="info" (onClick)="edit(obj,rowIndex)" /></td>
+    </tr>
+  </ng-template>
+  <ng-template #emptymessage>
+    <tr>
+      <td colspan="5" class="text-center">No role found.</td>
+    </tr>
+  </ng-template>
+</p-table>
+
+
+<p-dialog [(visible)]="creationDialog" [style]="{ width: '650px',height:'100%' }" header="{{this.context().name}} Details" [modal]="true" (onHide)="hideDialog()" (change)="debug()">
+  <ng-template #content>
+
+    <div class="flex flex-col gap-6">
+        <div *ngFor="let field of fieldsToShow">
+          <div *ngIf="field.isInputText">
+            <label for="{{field.name}}" class="block font-bold mb-3">{{ field.name | titlecase}}*</label>
+            <input type="text" id="{{field.name}}" pInputText [(ngModel)]="object[field.name]" autofocus fluid />
+            <small class="text-gray-500">{{ field.name }} must contains at least 4 characters.</small>
+          </div>
+          <div *ngIf="field.isMultiSelect">
+            <div>
+              <label for="{{field.name}}" class="block font-bold mb-3">{{field.name | titlecase}}*</label>
+              <p-multiselect [options]="field.listObjects" optionLabel="name" placeholder="Select Roles" [(ngModel)]="object[field.name]" [maxSelectedLabels]="3" styleClass="w-full md:w-80" id="role" ></p-multiselect>
+            </div>
+          </div>
+          <div *ngIf="field.isSelect">
+            <div>
+              <label for="{{field.name}}" class="block font-bold mb-3">{{field.name | titlecase}}*</label>
+              <p-select [options]="field.listObjects" [(ngModel)]="object[field.name]" optionLabel="name" placeholder="Select an {{field.name}}" class="w-full md:w-56" />
+            </div>
+          </div>
+          <div *ngIf="field.isTextEditor">
+            <label for="{{field.name}}" class="block font-bold mb-3">{{ field.name | titlecase}}*</label>
+            <p-editor id="description" [(ngModel)]="object[field.name]" required fluid minlength="50">
+              <ng-template #header>
+                <span class="ql-formats">
+                    <button type="button" class="ql-bold" aria-label="Bold"></button>
+                    <button type="button" class="ql-italic" aria-label="Italic"></button>
+                    <button type="button" class="ql-underline" aria-label="Underline"></button>
+                </span>
+              </ng-template>
+            </p-editor>
+          </div>
+        </div>
+    </div>
+  </ng-template>
+
+    <ng-template #footer>
+      <p-button label="Cancel" icon="pi pi-times" text (click)="hideDialog()" />
+      <p-button label="Save" icon="pi pi-plus" text (onClick)="processEntity()" />
+    </ng-template>
+</p-dialog>
+
+<p-toast />
+<p-confirm-dialog [style]="{ width: '450px' }" label="Delete"/>

@@ -14,5 +14,5 @@ public class Sharacter extends BaseEntity {
      * Identifier of the {@link Anime} this sharacter belongs to. Only the id is
      * stored to avoid holding a full object reference.
      */
-    private Long animeId;
+    private int animeId;
 }
