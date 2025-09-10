@@ -1,8 +1,8 @@
 package model;
 
 import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.List;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Table;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -13,7 +13,8 @@ import lombok.NoArgsConstructor;
 @EqualsAndHashCode(callSuper = true)
 @NoArgsConstructor
 @AllArgsConstructor
+@Entity
+@Table(name = "anime")
 public class Anime extends BaseEntity {
     private LocalDate release;
-    private List<Sharacter> sharacters = new ArrayList<>();
 }

@@ -1,67 +1,47 @@
 package service;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
-import model.Sharacter;
-
+import io.quarkus.hibernate.reactive.panache.common.WithSession;
+import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
 import io.smallrye.mutiny.Uni;
+import model.Sharacter;
+import repository.SharacterRepository;
 
 @ApplicationScoped
 public class SharacterService {
-    private final Map<Integer, Sharacter> storage = new ConcurrentHashMap<>();
-    private final AtomicInteger counter = new AtomicInteger(1);
-    private final AnimeService animeService;
+    private final SharacterRepository repository;
 
     @Inject
-    public SharacterService(AnimeService animeService) {
-        this.animeService = animeService;
+    public SharacterService(SharacterRepository repository) {
+        this.repository = repository;
     }
 
+    @WithSession
     public Uni<List<Sharacter>> findAll() {
-        return Uni.createFrom().item(() -> new ArrayList<>(storage.values()));
+        return repository.listAll();
     }
 
+    @WithSession
     public Uni<Sharacter> findById(int id) {
-        return Uni.createFrom().item(storage.get(id));
+        return repository.findById(id);
     }
 
+    @WithTransaction
     public Uni<Sharacter> save(Sharacter sharacter) {
-        return animeService.findById(sharacter.getAnimeId()).onItem().transformToUni(anime -> {
-            if (anime == null) {
-                return Uni.createFrom().nullItem();
-            }
-            if (sharacter.getId() == -1) {
-                sharacter.setId(counter.getAndIncrement());
-                sharacter.setCreatedAt(LocalDateTime.now());
-            }
-            sharacter.setUpdatedAt(LocalDateTime.now());
-            storage.put(sharacter.getId(), sharacter);
-            anime.getSharacters().removeIf(s -> s.getId() == sharacter.getId());
-            anime.getSharacters().add(sharacter);
-            return Uni.createFrom().item(sharacter);
-        });
+        if (sharacter.getId() == null) {
+            sharacter.setCreatedAt(LocalDateTime.now());
+        }
+        sharacter.setUpdatedAt(LocalDateTime.now());
+        return repository.persist(sharacter).replaceWith(sharacter);
     }
 
+    @WithTransaction
     public Uni<Void> delete(int id) {
-        Sharacter removed = storage.remove(id);
-        if (removed != null) {
-            return animeService.findById(removed.getAnimeId())
-                .onItem().invoke(anime -> {
-                    if (anime != null) {
-                        anime.getSharacters().removeIf(s -> s.getId()== id);
-                    }
-                })
-                .replaceWithVoid();
-        }
-        return Uni.createFrom().voidItem();
+        return repository.deleteById(id).replaceWithVoid();
     }
 }
