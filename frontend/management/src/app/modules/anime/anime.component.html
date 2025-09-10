@@ -64,10 +64,12 @@
       <td>{{ obj.name }}</td>
       <td [innerHTML]="obj.description"></td>
       <td>
-        <div *ngIf="obj.sharacters.length>0" >
-        <p-tag severity="warn" icon="pi pi-user" [style]="{color:'black'}" value="{{obj.sharacters[0].name}}" />
-        <p-button *ngIf="obj.sharacters.length>1" icon="pi pi-list" severity="secondary" (onClick)="showMore(obj.sharacters)" />
-        </div>
+        @for (char of obj.sharacters; track $index){
+          <p-tag severity="warn" icon="pi pi-user" [style]="{color:'black'}" value="{{char.name}}" />
+        }
+        @if (obj.sharacters && obj.sharacters.length>1) {
+          <p-button icon="pi pi-list" severity="secondary" (onClick)="showMore(obj.sharacters)" />
+        }
       </td>
       <td><p-button icon="pi pi-trash" severity="danger" (onClick)="delete(obj)" /><p-button icon="pi pi-pencil" severity="info" (onClick)="edit(obj)" /></td>
     </tr>

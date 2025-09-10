@@ -7,7 +7,7 @@ import {Dialog} from "primeng/dialog";
 import {Editor} from "primeng/editor";
 import {InputText} from "primeng/inputtext";
 import {MultiSelect} from "primeng/multiselect";
-import { NgIf, NgStyle, TitleCasePipe} from "@angular/common";
+import {NgForOf, NgIf, NgStyle, TitleCasePipe} from "@angular/common";
 import {ConfirmationService, MessageService, PrimeTemplate} from "primeng/api";
 import {FormsModule, ReactiveFormsModule} from "@angular/forms";
 import {Table, TableModule} from "primeng/table";
@@ -44,7 +44,7 @@ import {Sharacter} from "../../data-model/Sharacter";
     Toast,
     Toolbar,
     FormsModule,
-    NgStyle
+    NgStyle,
   ],
   templateUrl: './anime.component.html',
   standalone: true,
