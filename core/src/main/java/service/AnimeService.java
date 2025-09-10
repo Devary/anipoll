@@ -1,44 +1,47 @@
 package service;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
 
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 
-import model.Anime;
-
+import io.quarkus.hibernate.reactive.panache.common.WithSession;
+import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
 import io.smallrye.mutiny.Uni;
+import model.Anime;
+import repository.AnimeRepository;
 
 @ApplicationScoped
 public class AnimeService {
-    private final Map<Integer, Anime> storage = new ConcurrentHashMap<>();
-    private final AtomicInteger counter = new AtomicInteger(1);
+    private final AnimeRepository repository;
 
+    @Inject
+    public AnimeService(AnimeRepository repository) {
+        this.repository = repository;
+    }
+
+    @WithSession
     public Uni<List<Anime>> findAll() {
-        return Uni.createFrom().item(() -> new ArrayList<>(storage.values()));
+        return repository.listAll();
     }
 
+    @WithSession
     public Uni<Anime> findById(int id) {
-        return Uni.createFrom().item(storage.get(id));
+        return repository.findById(id);
     }
 
+    @WithTransaction
     public Uni<Anime> save(Anime anime) {
-        if (anime.getId() == -1) {
-            anime.setId(counter.getAndIncrement());
+        if (anime.getId() == null) {
             anime.setCreatedAt(LocalDateTime.now());
         }
         anime.setUpdatedAt(LocalDateTime.now());
-        storage.put(anime.getId(), anime);
-        return Uni.createFrom().item(anime);
+        return repository.persist(anime).replaceWith(anime);
     }
 
+    @WithTransaction
     public Uni<Void> delete(int id) {
-        storage.remove(id);
-        return Uni.createFrom().voidItem();
+        return repository.deleteById(id).replaceWithVoid();
     }
 }
