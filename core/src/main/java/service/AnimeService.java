@@ -4,7 +4,6 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import io.quarkus.panache.common.Parameters;
-import io.vertx.core.cli.Option;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 

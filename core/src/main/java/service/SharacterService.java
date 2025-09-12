@@ -19,9 +19,6 @@ import repository.SharacterRepository;
 @ApplicationScoped
 public class SharacterService {
     private final SharacterRepository repository;
-    @Inject
-    EntityManager em; // inject the JPA EntityManager
-            // Mutiny Vert.x (important)
 
     @Inject
     public SharacterService(SharacterRepository repository) {
