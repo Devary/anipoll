@@ -1,15 +1,14 @@
 package model;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.Table;
-import jakarta.persistence.Transient;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import jakarta.persistence.*;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.Fetch;
+import org.hibernate.annotations.FetchMode;
 
 @Data
 @EqualsAndHashCode(callSuper = true)
@@ -17,19 +16,16 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @Entity
 @Table(name = "sharacter")
+@NamedQuery(
+        name = "Sharacter.updateAnimeById",
+        query = "update Sharacter c set c.anime = :anime where c.id = :id"
+)
 public class Sharacter extends BaseEntity {
-    @ManyToOne
+    //@ManyToOne
+    //@JoinColumn(name = "anime_id")
+    //private Anime anime;
+
+    @ManyToOne(fetch = FetchType.EAGER,cascade = CascadeType.DETACH)
     @JoinColumn(name = "anime_id")
     private Anime anime;
-
-    @Transient
-    private Integer animeId;
-
-    public Integer getAnimeId() {
-        return animeId;
-    }
-
-    public void setAnimeId(Integer animeId) {
-        this.animeId = animeId;
-    }
 }

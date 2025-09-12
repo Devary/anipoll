@@ -90,7 +90,7 @@
       </div>
       <div>
         <label for="animes" class="block font-bold mb-3">{{"animes :" | titlecase}}*</label>
-        <p-select id="animes" [options]="animeList()" optionValue="id" optionLabel="name" placeholder="Select anime" [(ngModel)]="object['animeId']" styleClass="w-full md:w-80" ></p-select>
+        <p-select id="animes" [options]="animeList()" optionLabel="name" placeholder="Select anime" [(ngModel)]="object['anime']" styleClass="w-full md:w-80" ></p-select>
       </div>
       <div>
         <label for="{{object['description']}}" class="block font-bold mb-3">{{ "description" | titlecase}}*</label>

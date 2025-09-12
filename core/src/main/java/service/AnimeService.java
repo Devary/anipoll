@@ -3,6 +3,8 @@ package service;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import io.quarkus.panache.common.Parameters;
+import io.vertx.core.cli.Option;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
@@ -27,13 +29,13 @@ public class AnimeService {
     }
 
     @WithSession
-    public Uni<Anime> findById(int id) {
+    public Uni<Anime> findById(long id) {
         return repository.findById(id);
     }
 
     @WithTransaction
     public Uni<Anime> save(Anime anime) {
-        if (anime.getId() == null) {
+        if (anime.getId() == 0L) {
             anime.setCreatedAt(LocalDateTime.now());
         }
         anime.setUpdatedAt(LocalDateTime.now());
@@ -41,7 +43,7 @@ public class AnimeService {
     }
 
     @WithTransaction
-    public Uni<Void> delete(int id) {
-        return repository.deleteById(id).replaceWithVoid();
+    public Uni<Void> delete(long id) {
+        return Anime.delete("#Anime.safeDelete", Parameters.with("id", id)).replaceWithVoid();
     }
 }

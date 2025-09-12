@@ -12,7 +12,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class AnimeDto {
-    private Integer id;
+    private long id;
     private String name;
     private String description;
     private String image;

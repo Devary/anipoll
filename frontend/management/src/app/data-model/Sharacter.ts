@@ -6,7 +6,7 @@ export interface Sharacter {
   name:string;
   description:string;
   roles:SharacterRole[];
-  animeId:number;
+  anime?:Anime;
   _deleted:boolean;
 }
 
@@ -14,6 +14,5 @@ export class SharacterImpl implements Sharacter{
   name = "";
   description = "";
   roles= [];
-  animeId = -1;
   _deleted= false;
 }

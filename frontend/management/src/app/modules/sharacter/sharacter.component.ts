@@ -18,7 +18,6 @@ import {ConfirmDialog} from "primeng/confirmdialog";
 import {Dialog} from "primeng/dialog";
 import {Editor} from "primeng/editor";
 import {InputText} from "primeng/inputtext";
-import {MultiSelect} from "primeng/multiselect";
 import {NgIf, NgStyle, TitleCasePipe} from "@angular/common";
 import {FormsModule, ReactiveFormsModule} from "@angular/forms";
 import {Tag} from "primeng/tag";

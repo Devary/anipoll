@@ -4,10 +4,7 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.FetchType;
-import jakarta.persistence.OneToMany;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -20,6 +17,10 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @Entity
 @Table(name = "anime")
+@NamedQuery(
+        name = "Anime.safeDelete",
+        query = "DELETE Anime c WHERE c.id = :id"
+)
 public class Anime extends BaseEntity {
     private LocalDate release;
 
