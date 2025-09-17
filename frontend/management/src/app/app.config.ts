@@ -14,6 +14,7 @@ import {ContextService} from "./service/ContextService";
 import {AnimeService} from "./service/AnimeService";
 import {DialogService} from "primeng/dynamicdialog";
 import {CustomCallService} from "./service/CustomCallService";
+import {PollService} from "./service/PollService";
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -24,6 +25,7 @@ export const appConfig: ApplicationConfig = {
     SharacterService,
     RoleService,
     AnimeService,
+    PollService,
     MessageTemplateService,
     MessageService,
     WebClientService,

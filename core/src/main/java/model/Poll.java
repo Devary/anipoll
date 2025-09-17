@@ -25,11 +25,11 @@ public class Poll extends BaseEntity {
     private LocalDate startDate;
     private LocalDate endDate;
 
-    @ManyToMany(fetch = FetchType.EAGER)
+    @ManyToMany(fetch = FetchType.EAGER, cascade = CascadeType.DETACH)
     private List<Sharacter> sharacters = new ArrayList<>();
     @OneToMany(fetch = FetchType.EAGER)
     private List<VotingLine> voting_lines = new ArrayList<>();
-    @OneToMany(mappedBy = "parent", fetch = FetchType.EAGER)
+    @OneToMany(mappedBy = "parent", fetch = FetchType.EAGER,cascade = CascadeType.ALL)
     private List<Poll> subPolls = new ArrayList<>();
 
     @ManyToOne(fetch = FetchType.EAGER)

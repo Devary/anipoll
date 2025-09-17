@@ -1,0 +1,20 @@
+# Angular dev server with hot reload
+FROM node:20-alpine
+
+WORKDIR /usr/src/app
+RUN addgroup app && adduser -S -G app app
+
+# Install deps first for better caching
+COPY package*.json ./
+RUN npm ci
+RUN npm install -g @angular/cli@13
+
+# Copy the rest
+COPY . .
+EXPOSE 4100
+# Make sure the dev server binds to all interfaces
+# If your package.json doesn't already have "start", this works:
+#   "start": "ng serve --host 0.0.0.0 --port 4200"
+# Otherwise we'll call ng directly in CMD below.
+# Prefer your package script; fallback to ng serve
+CMD [ "sh", "-lc", "ng serve --host 0.0.0.0 --port 4100"]

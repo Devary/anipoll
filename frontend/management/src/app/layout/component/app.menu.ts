@@ -44,7 +44,7 @@ export class AppMenu {
       {
         label: 'Polls Workflow',
         items: [
-          {label: 'Single Poll', icon: 'pi pi-fw pi-plus', routerLink: ['/modules/single-poll']},
+          {label: 'Single Poll', icon: 'pi pi-fw pi-plus', routerLink: ['/modules/poll']},
           {label: 'Multi Poll', icon: 'pi pi-fw pi-plus', routerLink: ['/modules/multi-poll']},
         ]
       }

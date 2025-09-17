@@ -1,35 +1,68 @@
 version: '3.8'
+
 services:
-#  quarkus-service-template:
-#    build:
-#      context: ./quarkus-service-template
-#      dockerfile: src/main/docker/Dockerfile.jvm
-#    ports:
-#      - "8100:8100"
   db_anipoll:
     image: postgres:17
     container_name: ap_database
-    volumes:
-      - dbscripts:/docker-entrypoint-initdb.d/
-    #      - postgresql:/var/lib/postgresql
-    #      - postgresql_data:/var/lib/postgresql/data
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: postgres
-      PGUSER: postgres
+    volumes:
+      # put init .sql/.sh into ./db/init if you have them
+      - ./core/src/main/resources:/docker-entrypoint-initdb.d:ro,Z
+      #- postgresql_data:/var/lib/postgresql/data
     ports:
-      - 5432:5432
-    networks:
-      - runvoteqs-network
+      - "5432:5432"  # optional; only needed to connect from your host
+    networks: [anipoll-network]
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready", "-d", "quarkus_test","-u","postgres" ]
-      interval: 3s
-      timeout: 10s
-      retries: 4
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB} -h 127.0.0.1"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  anipoll:
+    build:
+      context: ./core
+      dockerfile: src/main/docker/Dockerfile.jvm
+    # IMPORTANT: do NOT run mvn here; the container should start your app
+    environment:
+      QUARKUS_DATASOURCE_DB_KIND: postgresql
+      QUARKUS_DATASOURCE_REACTIVE_URL: postgresql://db_anipoll:5432/postgres
+      QUARKUS_DATASOURCE_USERNAME: postgres
+      QUARKUS_DATASOURCE_PASSWORD: postgres
+      QUARKUS_HIBERNATE_ORM_ENABLED: "false"
+      QUARKUS_HIBERNATE_REACTIVE_ENABLED: "true"
+      # QUARKUS_HTTP_PORT: 9100
+    ports:
+      - "9100:9100"
+    networks: [anipoll-network]
+    depends_on:
+      db_anipoll:
+        condition: service_healthy
+
+  management-fe:
+    build:
+      context: ./frontend/management
+      dockerfile: Dockerfile.dev
+      #dockerfile: Dockerfile
+    ports:
+      - "4100:4100"
+    #environment:
+      #CHOKIDAR_USEPOLLING: "true"
+      #WATCHPACK_POLLING: "true"
+    volumes:
+      - ./frontend/management:/usr/src/app:Z
+      - /usr/src/app/node_modules
+    networks:
+      - anipoll-network
+    depends_on:
+      - anipoll
+
 
 networks:
-  runvoteqs-network:
+  anipoll-network:
     driver: bridge
+
 volumes:
-  dbscripts:
+  postgresql_data:
