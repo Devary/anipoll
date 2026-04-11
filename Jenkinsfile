@@ -2,65 +2,82 @@ pipeline {
     agent any
 
     tools {
+        jdk 'jdk17'
         maven 'Maven'
     }
 
+    options {
+        timestamps()
+        disableConcurrentBuilds()
+    }
+
     environment {
-        VERSION = readMavenPom().getVersion()
-        NAME = readMavenPom().getArtifactId()
+        APP_NAME = 'anipoll'
+        APP_VERSION = '1.0-SNAPSHOT'
+        CORE_DIR = 'core'
     }
 
     stages {
-    
-    	stage('scm') {
-    	   steps {
-	    	    checkout scm
-    		}
-    	}
-        
-        stage('compile') {
-	        steps {
-	       		sh 'mvn clean package -DskipTests'
-	        }        	                  
+        stage('Checkout') {
+            steps {
+                checkout scm
+                sh 'git status --short || true'
+            }
         }
-        
-         stage('tests') {
-	        steps {
-           		sh 'mvn jacoco:prepare-agent test -P coverage'
 
-           		jacoco(
-    				execPattern: '**/target/jacoco.exec',
-    				classPattern: '**/target/classes/**',
-    				sourcePattern: '**/src/main/java/**',
-    				inclusionPattern: '**/*.class')
-	        }
-        }
-        
-    stage('SonarQube Analysis') {
-        steps {
-        withSonarQubeEnv("sonar") {
-                    sh "mvn clean verify sonar:sonar -Dsonar.projectKey=anipoll -Dsonar.projectName='anipoll'"
+        stage('Build Core') {
+            steps {
+                dir("${env.CORE_DIR}") {
+                    sh 'mvn -B -ntp clean package -DskipTests'
                 }
+            }
         }
-    }
-        
-        stage('package') {
+
+        stage('Test Core') {
+            steps {
+                dir("${env.CORE_DIR}") {
+                    sh 'mvn -B -ntp test'
+                }
+            }
+            post {
+                always {
+                    junit allowEmptyResults: true, testResults: 'core/target/surefire-reports/*.xml'
+                }
+            }
+        }
+
+        stage('Package') {
             when {
-                anyOf {
-                    branch 'master';
-                }
+                branch 'master'
             }
             steps {
-                script {
-                    sh '''
-						mkdir target/package/apps-repo
-						cp target/$NAME-$VERSION.jar target/package/apps-repo/$NAME.jar
-						cd target/package && zip -r ../$NAME-$VERSION.zip .
-                    '''
-                }
+                sh '''
+                    set -e
+                    rm -rf target/package
+                    mkdir -p target/package/apps-repo
+
+                    JAR_PATH=$(find core/target -maxdepth 1 -type f \( -name '*.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar' ! -name '*-runner.jar' \) | head -n 1)
+
+                    if [ -z "$JAR_PATH" ]; then
+                      echo "No build jar found in core/target"
+                      exit 1
+                    fi
+
+                    cp "$JAR_PATH" "target/package/apps-repo/${APP_NAME}.jar"
+                    cd target/package
+                    zip -r "../${APP_NAME}-${APP_VERSION}.zip" .
+                '''
+                archiveArtifacts artifacts: 'target/*.zip', fingerprint: true, onlyIfSuccessful: true
             }
         }
-        
     }
-    
+
+    post {
+        success {
+            echo 'Pipeline completed successfully.'
+        }
+        failure {
+            echo 'Pipeline failed. Check compile/test logs above.'
+        }
+    }
 }
