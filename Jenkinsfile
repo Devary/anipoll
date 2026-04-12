@@ -56,11 +56,7 @@ pipeline {
                     rm -rf target/package
                     mkdir -p target/package/apps-repo
 
-                    JAR_PATH=$(find core/target -maxdepth 1 -type f \
-                      -name '*.jar' \
-                      ! -name '*-sources.jar' \
-                      ! -name '*-javadoc.jar' \
-                      ! -name '*-runner.jar' | head -n 1)
+                    JAR_PATH=$(find core/target -maxdepth 1 -type f -name '*.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar' ! -name '*-runner.jar' | head -n 1)
 
                     if [ -z "$JAR_PATH" ]; then
                       echo "No build jar found in core/target"
