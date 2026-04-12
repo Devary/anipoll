@@ -56,7 +56,6 @@ pipeline {
                     rm -rf target/package
                     mkdir -p target/package/apps-repo
 
-                    # Avoid escaped find parentheses here; Groovy/Jenkins can choke on \( and \).
                     JAR_PATH=$(find core/target -maxdepth 1 -type f \
                       -name '*.jar' \
                       ! -name '*-sources.jar' \
