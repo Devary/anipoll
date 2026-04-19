@@ -25,7 +25,7 @@ pipeline {
         FULL_IMAGE = "${HARBOR_PREFIX}/${IMAGE_NAME}:${IMAGE_TAG}"
         DEPLOYMENT_NAME = "${IMAGE_NAME}"                                              
         CONTAINER_NAME = "${IMAGE_NAME}"
-        RUNDECK_JOB_ID = 1b180a49-b61b-4733-877e-03f3ea9f6939
+        RUNDECK_JOB_ID = "1b180a49-b61b-4733-877e-03f3ea9f6939"
         
     }
 
