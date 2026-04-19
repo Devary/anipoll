@@ -17,7 +17,7 @@ pipeline {
         CORE_DIR = 'core'
         HARBOR_REGISTRY = '192.168.178.41:30002'
         RUNDECK_HOST = '192.168.178.41' 
-        RUNDECK_PORT = 31977
+        RUNDECK_PORT = '31977'
         HARBOR_PROJECT = 'library'                                                     
         IMAGE_NAME = 'jenkins-harbor-test'                                             
         IMAGE_TAG = "${env.BUILD_NUMBER}"                                              
@@ -159,7 +159,7 @@ stage('Prepare Dockerfile') {
      steps {                                                                        
        withCredentials([string(credentialsId: 'rundeck-api-token', variable: 'RUNDECK_TOKEN')]) {                                                               
          sh '''                                                                     
-           curl -sS -X POST "http://RUNDECK_HOST:RUNDECK_PORT/api/46/job/RUNDECK_JOB_ID/run" -H "X-Rundeck-Auth-Token: $RUNDECK_TOKEN" -H "Content-Type: application/json" -d '{ "options": { "image": "HARBOR_REGISTRY/library/${IMAGE_NAME}", "tag": "${IMAGE_TAG}", "namespace": "default", "deployment": "${DEPLOYMENT_NAME}", "container": "${CONTAINER_NAME}"  } }'                                                                     
+           curl -sS -X POST "http://${RUNDECK_HOST}:${RUNDECK_PORT}/api/46/job/${RUNDECK_JOB_ID}/run" -H "X-Rundeck-Auth-Token: ${RUNDECK_TOKEN}" -H "Content-Type: application/json" -d '{ "options": { "image": "${HARBOR_REGISTRY}/library/${IMAGE_NAME}", "tag": "${IMAGE_TAG}", "namespace": "default", "deployment": "${DEPLOYMENT_NAME}", "container": "${CONTAINER_NAME}"  } }'                                                                     
          '''                                                                        
        }                                                                            
      }                                                                              
