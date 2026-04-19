@@ -93,7 +93,28 @@ stage('Prepare Dockerfile') {
              echo "HARBOR_REGISTRY=$HARBOR_REGISTR Y"                               
            '''                                                                      
          }                                                                          
+       }
+       stage('Set Image Names') {                                                   
+         steps {                                                                    
+           script {                                                                 
+             env.LOCAL_IMAGE = "${env.IMAGE_NAME}:${env.IMAGE_T AG}"                
+             env.FULL_IMAGE =                                                       
+ "${env.HARBOR_REGISTRY}/${env.HARBOR_PROJECT}/${env.IMAGE_NAME}:${env.IMAGE_TAG}"  
+           }                                                                        
+         }                                                                          
        }                                                                            
+                                                                                    
+       stage('Debug Variables') {                                                   
+         steps {                                                                    
+           sh '''                                                                   
+             echo "BUILD_NUMBER=$BUILD_NUMBER"                                      
+             echo "IMAGE_NAME=$IMAGE_NAME"                                          
+             echo "IMAGE_TAG=$IMAGE_TAG"                                            
+             echo "LOCAL_IMAGE=$LOCAL_IMAGE"                                        
+             echo "FULL_IMAGE=$FULL_IMAGE"                                          
+           '''                                                                      
+         }                                                                          
+       }
                                                                                     
        stage('Build Image') {                                                       
          steps {                                                                    
