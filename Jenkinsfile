@@ -90,7 +90,12 @@ stage('Prepare Dockerfile') {
            sh '''                                                                   
              echo "LOCAL_IMAGE=$LOCAL_IMAGE"                                        
              echo "FULL_IMAGE=$FULL_IMAGE"                                          
-             echo "HARBOR_REGISTRY=$HARBOR_REGISTRY"                               
+             echo "HARBOR_REGISTRY=$HARBOR_REGISTRY"
+             echo "BUILD_NUMBER=$BUILD_NUMBER"                                      
+             echo "IMAGE_NAME=$IMAGE_NAME"                                          
+             echo "IMAGE_TAG=$IMAGE_TAG"                                            
+             echo "LOCAL_IMAGE=$LOCAL_IMAGE"                                        
+             echo "FULL_IMAGE=$FULL_IMAGE"    
            '''                                                                      
          }                                                                          
        }
@@ -103,18 +108,7 @@ stage('Prepare Dockerfile') {
            }                                                                        
          }                                                                          
        }                                                                            
-                                                                                    
-       stage('Debug Variables') {                                                   
-         steps {                                                                    
-           sh '''                                                                   
-             echo "BUILD_NUMBER=$BUILD_NUMBER"                                      
-             echo "IMAGE_NAME=$IMAGE_NAME"                                          
-             echo "IMAGE_TAG=$IMAGE_TAG"                                            
-             echo "LOCAL_IMAGE=$LOCAL_IMAGE"                                        
-             echo "FULL_IMAGE=$FULL_IMAGE"                                          
-           '''                                                                      
-         }                                                                          
-       }
+                                                                                
                                                                                     
        stage('Build Image') {                                                       
          steps {                                                                    
