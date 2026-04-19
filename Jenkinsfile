@@ -154,7 +154,7 @@ stage('Prepare Dockerfile') {
     } 
     stage('Trigger Rundeck Deploy') {                                                
      steps {                                                                        
-       withCredentials([string(credenti alsId: 'rundeck-api-token', variable: 'RUNDECK_TOKEN')]) {                                                               
+       withCredentials([string(credentialsId: 'rundeck-api-token', variable: 'RUNDECK_TOKEN')]) {                                                               
          sh '''                                                                     
            curl -sS -X POST                                                         
  "http://RUNDECK_HOST:4440/api/46/job/RUNDECK_JOB_ID/run" \                         
