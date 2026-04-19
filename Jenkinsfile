@@ -15,7 +15,9 @@ pipeline {
         APP_NAME = 'anipoll'
         APP_VERSION = '1.0-SNAPSHOT'
         CORE_DIR = 'core'
-        HARBOR_REGISTRY = '192.168.178.41:30002'                                       
+        HARBOR_REGISTRY = '192.168.178.41:30002'
+        RUNDECK_HOST = '192.168.178.41' 
+        RUNDECK_PORT = '31977'
         HARBOR_PROJECT = 'library'                                                     
         IMAGE_NAME = 'jenkins-harbor-test'                                             
         IMAGE_TAG = "${env.BUILD_NUMBER}"                                              
@@ -23,6 +25,8 @@ pipeline {
         FULL_IMAGE = "${HARBOR_PREFIX}/${IMAGE_NAME}:${IMAGE_TAG}"
         DEPLOYMENT_NAME = "${IMAGE_NAME}"                                              
         CONTAINER_NAME = "${IMAGE_NAME}"
+        RUNDECK_JOB_ID = 1b180a49-b61b-4733-877e-03f3ea9f6939
+        
     }
 
     stages {
@@ -156,9 +160,9 @@ stage('Prepare Dockerfile') {
        withCredentials([string(credentialsId: 'rundeck-api-token', variable: 'RUNDECK_TOKEN')]) {                                                               
          sh '''                                                                     
            curl -sS -X POST                                                         
- "http://RUNDECK_HOST:4440/api/46/job/RUNDECK_JOB_ID/run" -H "X-Rundeck-Auth-Token: $RUNDECK_TOKEN" -H "Content-Type: application/json" -d '{                                                                  
+ "http://RUNDECK_HOST:RUNDECK_PORT/api/46/job/RUNDECK_JOB_ID/run" -H "X-Rundeck-Auth-Token: $RUNDECK_TOKEN" -H "Content-Type: application/json" -d '{                                                                  
                "options": {                                                         
-                 "image": "192.168.178.41:30002/library/${IMAGE_NAME}",             
+                 "image": "HARBOR_REGISTRY/library/${IMAGE_NAME}",             
                  "tag": "${IMAGE_TAG}",                                             
                  "namespace": "default",                                            
                  "deployment": "${DEPLOYMENT_NAME}",                                
