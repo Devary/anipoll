@@ -1,14 +1,20 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-WORKSPACE="${1:?workspace required}"
-IMAGE="${1:?image required}"
-TAG="${2:?tag required}"
-NAMESPACE="${3:-default}"
-DEPLOYMENT="${4:-anipoll}"
-CONTAINER="${5:-anipoll}"
-PORT="${6:-8080}"
+IMAGE="${1:-${RD_OPTION_IMAGE:-}}"
+TAG="${2:-${RD_OPTION_TAG:-}}"
+NAMESPACE="${3:-${RD_OPTION_NAMESPACE:-default}}"
+DEPLOYMENT="${4:-${RD_OPTION_DEPLOYMENT:-anipoll}}"
+CONTAINER="${5:-${RD_OPTION_CONTAINER:-anipoll}}"
+PORT="${6:-${RD_OPTION_PORT:-8080}}"
+WORKSPACE="${7:-${RD_OPTION_WORKSPACE:-$(pwd)}}"
+
+: "${IMAGE:?image required}"
+: "${TAG:?tag required}"
+
 FULL_IMAGE="${IMAGE}:${TAG}"
+
+cd "${WORKSPACE}"
 
 kubectl get namespace "${NAMESPACE}" >/dev/null 2>&1 || kubectl create namespace "${NAMESPACE}"
 
