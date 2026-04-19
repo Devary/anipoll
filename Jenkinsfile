@@ -175,6 +175,7 @@ stage('Prepare Dockerfile') {
                      -H "Content-Type: application/json" \
                      -d "{
                        \\"options\\": {
+                         \\"workspace\\": \\"${WORKSPACE}\\",
                          \\"image\\": \\"${IMAGE_PATH}\\",
                          \\"tag\\": \\"${IMAGE_TAG}\\",
                          \\"namespace\\": \\"${NAMESPACE}\\",
