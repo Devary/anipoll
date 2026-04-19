@@ -157,10 +157,7 @@ stage('Prepare Dockerfile') {
        withCredentials([string(credentialsId: 'rundeck-api-token', variable: 'RUNDECK_TOKEN')]) {                                                               
          sh '''                                                                     
            curl -sS -X POST                                                         
- "http://RUNDECK_HOST:4440/api/46/job/RUNDECK_JOB_ID/run" \                         
-             -H "X-Rundeck-Auth-Token: $RUNDECK_TOKEN" \                            
-             -H "Content-Type: application/json" \                                  
-             -d '{                                                                  
+ "http://RUNDECK_HOST:4440/api/46/job/RUNDECK_JOB_ID/run" -H "X-Rundeck-Auth-Token: $RUNDECK_TOKEN" -H "Content-Type: application/json" -d '{                                                                  
                "options": {                                                         
                  "image": "192.168.178.41:30002/library/${IMAGE_NAME}",             
                  "tag": "${IMAGE_TAG}",                                             
