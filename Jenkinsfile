@@ -150,8 +150,7 @@ stage('Prepare Dockerfile') {
              docker push "$FULL_IMAGE"                                              
            '''                                                                      
          }                                                                          
-       }       
-    } 
+       }
     stage('Trigger Rundeck Deploy') {                                                
      steps {                                                                        
        withCredentials([string(credentialsId: 'rundeck-api-token', variable: 'RUNDECK_TOKEN')]) {                                                               
@@ -169,7 +168,9 @@ stage('Prepare Dockerfile') {
          '''                                                                        
        }                                                                            
      }                                                                              
-   }    
+   }
+    } 
+        
 
     post {
         success {
