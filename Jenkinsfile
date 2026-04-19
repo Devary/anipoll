@@ -90,14 +90,14 @@ stage('Prepare Dockerfile') {
            sh '''                                                                   
              echo "LOCAL_IMAGE=$LOCAL_IMAGE"                                        
              echo "FULL_IMAGE=$FULL_IMAGE"                                          
-             echo "HARBOR_REGISTRY=$HARBOR_REGISTR Y"                               
+             echo "HARBOR_REGISTRY=$HARBOR_REGISTRY"                               
            '''                                                                      
          }                                                                          
        }
        stage('Set Image Names') {                                                   
          steps {                                                                    
            script {                                                                 
-             env.LOCAL_IMAGE = "${env.IMAGE_NAME}:${env.IMAGE_T AG}"                
+             env.LOCAL_IMAGE = "${env.IMAGE_NAME}:${env.IMAGE_TAG}"                
              env.FULL_IMAGE =                                                       
  "${env.HARBOR_REGISTRY}/${env.HARBOR_PROJECT}/${env.IMAGE_NAME}:${env.IMAGE_TAG}"  
            }                                                                        
