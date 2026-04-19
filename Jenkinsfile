@@ -76,7 +76,8 @@ pipeline {
                 archiveArtifacts artifacts: 'target/*.zip', fingerprint: true, onlyIfSuccessful: true
             }
         }
-        stage('Prepare Dockerfile') {                                                
+        stages {                                                                       
+       stage('Prepare Dockerfile') {                                                
          steps {                                                                    
            writeFile file: 'Dockerfile', text: '''                                  
    FROM alpine:3.20                                                                 
@@ -85,21 +86,33 @@ pipeline {
          }                                                                          
        }                                                                            
                                                                                     
+       stage('Debug Variables') {                                                   
+         steps {                                                                    
+           sh '''                                                                   
+             echo "LOCAL_IMAGE=$LOCAL_IMAGE"                                        
+             echo "FULL_IMAGE=$FULL_IMAGE"                                          
+             echo "HARBOR_REGISTRY=$HARBOR_REGISTR Y"                               
+           '''                                                                      
+         }                                                                          
+       }                                                                            
+                                                                                    
        stage('Build Image') {                                                       
          steps {                                                                    
-           sh 'docker build -t ${LOCAL_IMAGE} .'                                    
+           sh '''                                                                   
+             docker build -t "$LOCAL_IMAGE" .                                       
+           '''                                                                      
          }                                                                          
        }                                                                            
                                                                                     
        stage('Login to Harbor') {                                                   
          steps {                                                                    
-           withCredentials([usernamePassword(                                      
+           withCredentials([usernamePasswor d(                                      
              credentialsId: 'harbor-creds',                                         
              usernameVariable: 'HARBOR_USER',                                       
              passwordVariable: 'HARBOR_PASS'                                        
            )]) {                                                                    
              sh '''                                                                 
-               echo "$HARBOR_PASS" | docker login ${HARBOR_REGISTRY} -u             
+               echo "$HARBOR_PASS" | docker login "$HARBOR_REGISTRY" -u             
  "$HARBOR_USER" --password-stdin                                                    
              '''                                                                    
            }                                                                        
@@ -108,15 +121,20 @@ pipeline {
                                                                                     
        stage('Tag Image') {                                                         
          steps {                                                                    
-           sh 'docker tag ${LOCAL_IMAGE} ${FULL_IMAGE}'                             
+           sh '''                                                                   
+             docker tag "$LOCAL_IMAGE" "$FULL_IMAGE"                                
+           '''                                                                      
          }                                                                          
        }                                                                            
                                                                                     
        stage('Push Image') {                                                        
          steps {                                                                    
-           sh 'docker push ${FULL_IMAGE}'                                           
+           sh '''                                                                   
+             docker push "$FULL_IMAGE"                                              
+           '''                                                                      
          }                                                                          
-       }                              
+       }                                                                            
+     } 
     } 
 
     post {
