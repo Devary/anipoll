@@ -170,7 +170,7 @@ stage('Prepare Dockerfile') {
                    echo "DEPLOYMENT_NAME=$DEPLOYMENT_NAME"
                    echo "CONTAINER_NAME=$CONTAINER_NAME"
 
-                   curl -sS -X POST "${RUNDECK_URL}/api/46/job/${RUNDECK_JOB_ID}/run" \
+                   curl -sS -X POST "${RUNDECK_HOST}:${RUNDECK_PORT}/api/46/job/${RUNDECK_JOB_ID}/run" \
                      -H "X-Rundeck-Auth-Token: $RUNDECK_TOKEN" \
                      -H "Content-Type: application/json" \
                      -d "{
