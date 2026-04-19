@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+WORKSPACE="${1:?workspace required}"
 IMAGE="${1:?image required}"
 TAG="${2:?tag required}"
 NAMESPACE="${3:-default}"
