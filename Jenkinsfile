@@ -126,8 +126,7 @@ stage('Prepare Dockerfile') {
              passwordVariable: 'HARBOR_PASS'                                        
            )]) {                                                                    
              sh '''                                                                 
-               echo "$HARBOR_PASS" | docker login "$HARBOR_REGISTRY" -u             
- "$HARBOR_USER" --password-stdin                                                    
+               echo "$HARBOR_PASS" | docker login "$HARBOR_REGISTRY" -u "$HARBOR_USER" --password-stdin                                                    
              '''                                                                    
            }                                                                        
          }                                                                          
