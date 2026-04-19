@@ -76,10 +76,7 @@ pipeline {
                 archiveArtifacts artifacts: 'target/*.zip', fingerprint: true, onlyIfSuccessful: true
             }
         }
-    }
-
-    stages {                                                                       
-       stage('Prepare Dockerfile') {                                                
+        stage('Prepare Dockerfile') {                                                
          steps {                                                                    
            writeFile file: 'Dockerfile', text: '''                                  
    FROM alpine:3.20                                                                 
@@ -119,8 +116,8 @@ pipeline {
          steps {                                                                    
            sh 'docker push ${FULL_IMAGE}'                                           
          }                                                                          
-       }                                                                            
-     } 
+       }                              
+    } 
 
     post {
         success {
