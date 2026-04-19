@@ -157,7 +157,7 @@ stage('Prepare Dockerfile') {
        }
         stage('Trigger Rundeck Deploy') {
              steps {
-               withCredentials([string(credenti alsId: 'rundeck-api-token', variable: 'RUNDECK_TOKEN')])
+               withCredentials([string(credentialsId: 'rundeck-api-token', variable: 'RUNDECK_TOKEN')])
                 {
                  sh '''
                    set -euo pipefail
