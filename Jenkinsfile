@@ -21,6 +21,8 @@ pipeline {
         IMAGE_TAG = "${env.BUILD_NUMBER}"                                              
         HARBOR_PREFIX = "${HARBOR_REGISTRY}/${HARBOR_PROJECT}"                         
         FULL_IMAGE = "${HARBOR_PREFIX}/${IMAGE_NAME}:${IMAGE_TAG}"
+        DEPLOYMENT_NAME = "${IMAGE_NAME}"                                              
+        CONTAINER_NAME = "${IMAGE_NAME}"
     }
 
     stages {
@@ -95,7 +97,9 @@ stage('Prepare Dockerfile') {
              echo "IMAGE_NAME=$IMAGE_NAME"                                          
              echo "IMAGE_TAG=$IMAGE_TAG"                                            
              echo "LOCAL_IMAGE=$LOCAL_IMAGE"                                        
-             echo "FULL_IMAGE=$FULL_IMAGE"    
+             echo "FULL_IMAGE=$FULL_IMAGE"
+             echo "DEPLOYMENT_NAME=$IMAGE_NAME"                                              
+             echo "CONTAINER_NAME=$IMAGE_NAME"
            '''                                                                      
          }                                                                          
        }
@@ -161,8 +165,8 @@ stage('Prepare Dockerfile') {
                  "image": "192.168.178.41:30002/library/${IMAGE_NAME}",             
                  "tag": "${IMAGE_TAG}",                                             
                  "namespace": "default",                                            
-                 "deployment": "${IMAGE_NAME}",                                     
-                 "container": "${IMAGE_NAME}"                                       
+                 "deployment": "${DEPLOYMENT_NAME}",                                
+                 "container": "${CONTAINER_NAME}"                                      
                }                                                                     
              }'                                                                     
          '''                                                                        
