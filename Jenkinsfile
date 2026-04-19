@@ -17,7 +17,7 @@ pipeline {
         CORE_DIR = 'core'
         HARBOR_REGISTRY = '192.168.178.41:30002'
         RUNDECK_HOST = '192.168.178.41' 
-        RUNDECK_PORT = '31977'
+        RUNDECK_PORT = '4440'
         HARBOR_PROJECT = 'library'                                                     
         IMAGE_NAME = 'jenkins-harbor-test'                                             
         IMAGE_TAG = "${env.BUILD_NUMBER}"                                              
