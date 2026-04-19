@@ -167,7 +167,7 @@ stage('Prepare Dockerfile') {
                    echo "IMAGE_PATH=$IMAGE_PATH"
                    echo "IMAGE_TAG=$IMAGE_TAG"
                    echo "NAMESPACE="
-                   echo "DEPLOYMENT_NAME=$DEPLOYMENT_NAM E"
+                   echo "DEPLOYMENT_NAME=$DEPLOYMENT_NAME"
                    echo "CONTAINER_NAME=$CONTAINER_NAME"
 
                    curl -sS -X POST "${RUNDECK_URL}/api/46/job/${RUNDECK_JOB_ID}/run" \
