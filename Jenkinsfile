@@ -148,6 +148,27 @@ stage('Prepare Dockerfile') {
          }                                                                          
        }       
     } 
+    stage('Trigger Rundeck Deploy') {                                                
+     steps {                                                                        
+       withCredentials([string(credenti alsId: 'rundeck-api-token', variable: 'RUNDECK_TOKEN')]) {                                                               
+         sh '''                                                                     
+           curl -sS -X POST                                                         
+ "http://RUNDECK_HOST:4440/api/46/job/RUNDECK_JOB_ID/run" \                         
+             -H "X-Rundeck-Auth-Token: $RUNDECK_TOKEN" \                            
+             -H "Content-Type: application/json" \                                  
+             -d '{                                                                  
+               "options": {                                                         
+                 "image": "192.168.178.41:30002/library/${IMAGE_NAME}",             
+                 "tag": "${IMAGE_TAG}",                                             
+                 "namespace": "default",                                            
+                 "deployment": "${IMAGE_NAME}",                                     
+                 "container": "${IMAGE_NAME}"                                       
+               }                                                                     
+             }'                                                                     
+         '''                                                                        
+       }                                                                            
+     }                                                                              
+   }    
 
     post {
         success {
