@@ -159,5 +159,24 @@
                 <quarkus.native.enabled>true</quarkus.native.enabled>
             </properties>
         </profile>
+
+        <profile>
+            <id>use-jfrog</id>
+            <properties>
+                <jfrog.base.url>http://192.168.178.41:30990/artifactory</jfrog.base.url>
+            </properties>
+            <distributionManagement>
+                <repository>
+                    <id>jfrog-releases</id>
+                    <name>JFrog Releases</name>
+                    <url>${jfrog.base.url}/maven-releases</url>
+                </repository>
+                <snapshotRepository>
+                    <id>jfrog-snapshots</id>
+                    <name>JFrog Snapshots</name>
+                    <url>${jfrog.base.url}/maven-snapshots</url>
+                </snapshotRepository>
+            </distributionManagement>
+        </profile>
     </profiles>
 </project>
