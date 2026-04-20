@@ -89,9 +89,7 @@ pipeline {
             }
             steps {
                 dir("${env.CORE_DIR}") {
-                    withMaven(maven: 'Maven') {
-                        sh 'mvn -B -ntp -Puse-jfrog deploy -DskipTests'
-                    }
+                    sh 'mvn -B -ntp -Puse-jfrog deploy -DskipTests'
                 }
             }
         }
