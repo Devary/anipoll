@@ -82,6 +82,20 @@ pipeline {
                 archiveArtifacts artifacts: 'target/*.zip', fingerprint: true, onlyIfSuccessful: true
             }
         }
+
+        stage('Deploy to JFrog') {
+            when {
+                branch 'master'
+            }
+            steps {
+                dir("${env.CORE_DIR}") {
+                    withMaven(maven: 'Maven') {
+                        sh 'mvn -B -ntp -Puse-jfrog deploy -DskipTests'
+                    }
+                }
+            }
+        }
+
 stage('Prepare Dockerfile') {
          steps {
            writeFile file: 'Dockerfile', text: '''
