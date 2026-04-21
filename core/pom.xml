@@ -169,12 +169,12 @@
                 <repository>
                     <id>jfrog-releases</id>
                     <name>JFrog Releases</name>
-                    <url>${jfrog.base.url}/maven-releases</url>
+                    <url>${jfrog.base.url}/dev-mvn-repo</url>
                 </repository>
                 <snapshotRepository>
                     <id>jfrog-snapshots</id>
                     <name>JFrog Snapshots</name>
-                    <url>${jfrog.base.url}/maven-snapshots</url>
+                    <url>${jfrog.base.url}/dev-mvn-repo</url>
                 </snapshotRepository>
             </distributionManagement>
         </profile>
