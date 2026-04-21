@@ -8,12 +8,12 @@
    echo "ARG5_CONTAINER=${5:-}"
    echo "ARG6_PORT=${6:-}"
 
-   IMAGE="${1:-${RD_OPTION_IMAGE:-}}"
-   TAG="${2:-${RD_OPTION_TAG:-}}"
-   NAMESPACE="${3:-${RD_OPTION_NAMESPACE:-default}}"
-   DEPLOYMENT="${4:-${RD_OPTION_DEPLOYMENT:-anipoll}}"
-   CONTAINER="${5:-${RD_OPTION_CONTAINER:-anipoll}}"
-   PORT="${6:-${RD_OPTION_PORT:-8080}}"
+   IMAGE="${1:-}"
+   TAG="${2:-}"
+   NAMESPACE="${3:-default}"
+   DEPLOYMENT="${4:-anipoll}"
+   CONTAINER="${5:-anipoll}"
+   PORT="${6:-8080}"
 
    : "${IMAGE:?image required}"
    : "${TAG:?tag required}"
