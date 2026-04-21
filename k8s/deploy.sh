@@ -30,8 +30,7 @@
    echo "CONTAINER=${CONTAINER}"
    echo "PORT=${PORT}"
 
-   kubectl get namespace "${NAMESPACE}" >/dev/null 2>&1 || kubectl create namespace
- "${NAMESPACE}"
+   kubectl get namespace "${NAMESPACE}" >/dev/null 2>&1 || kubectl create namespace "${NAMESPACE}"
 
    if kubectl get deployment "${DEPLOYMENT}" -n "${NAMESPACE}" >/dev/null 2>&1; then
      echo "Updating existing deployment ${DEPLOYMENT} in namespace ${NAMESPACE} to ${FULL_IMAGE}"
