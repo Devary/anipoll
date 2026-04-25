@@ -123,10 +123,14 @@ stage('Prepare Dockerfile') {
        stage('Set Image Names') {
          steps {
            script {
-             def resolvedVersion = sh(
-               script: "mvn -q -DforceStdout -f ${env.CORE_DIR}/pom.xml help:evaluate -Dexpression=project.version | tail -n 1",
-               returnStdout: true
-             ).trim()
+             def pom = readFile("${env.CORE_DIR}/pom.xml")
+             def matcher = pom =~ /<version>([^<]+)<\/version>/
+
+             if (!matcher.find()) {
+               error('Could not resolve Maven project version from core/pom.xml')
+             }
+
+             def resolvedVersion = matcher.group(1).trim()
 
              if (!resolvedVersion || resolvedVersion == 'null') {
                error("Could not resolve Maven project version. Got: '${resolvedVersion}'")
