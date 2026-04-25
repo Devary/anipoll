@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     tools {
-        jdk 'graalvm24'
+        jdk 'graalvm17'
         maven 'Maven'
     }
 
@@ -22,6 +22,7 @@ pipeline {
         IMAGE_NAME = 'anipoll'
         IMAGE_TAG = ''
         PROJECT_TYPE = ''
+        GRAALVM24_HOME = tool(name: 'graalvm24', type: 'hudson.model.JDK')
         HARBOR_PREFIX = "${HARBOR_REGISTRY}/${HARBOR_PROJECT}"
         FULL_IMAGE = ''
         LATEST_IMAGE = ''
@@ -59,12 +60,22 @@ pipeline {
         stage('Build Core') {
             steps {
                 dir("${env.CORE_DIR}") {
-                    script {
-                        if (env.PROJECT_TYPE == 'quarkus') {
-                            sh 'mvn -B -ntp clean package -DskipTests -Dnative'
-                        } else {
-                            sh 'mvn -B -ntp clean package -DskipTests'
-                        }
+                    sh 'mvn -B -ntp clean package -DskipTests'
+                }
+            }
+        }
+
+        stage('Build Native Image') {
+            when {
+                allOf {
+                    branch 'master'
+                    expression { env.PROJECT_TYPE == 'quarkus' }
+                }
+            }
+            steps {
+                dir("${env.CORE_DIR}") {
+                    withEnv(["JAVA_HOME=${env.GRAALVM24_HOME}", "PATH+GRAAL=${env.GRAALVM24_HOME}/bin"]) {
+                        sh 'mvn -B -ntp package -DskipTests -Dnative'
                     }
                 }
             }
