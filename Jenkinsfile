@@ -197,7 +197,7 @@ stage('Prepare Dockerfile') {
                    IMAGE_PATH="${HARBOR_REGISTRY}/${HARBOR_PROJECT}/${IMAGE_NAME}"
 
                    echo "IMAGE_PATH=$IMAGE_PATH"
-                   echo "IMAGE_TAG=$IMAGE_TAG"
+                   echo "IMAGE_TAG=latest"
                    echo "NAMESPACE="
                    echo "DEPLOYMENT_NAME=$DEPLOYMENT_NAME"
                    echo "CONTAINER_NAME=$CONTAINER_NAME"
@@ -209,7 +209,7 @@ stage('Prepare Dockerfile') {
                        \\"options\\": {
                          \\"workspace\\": \\"${WORKSPACE}\\",
                          \\"image\\": \\"${IMAGE_PATH}\\",
-                         \\"tag\\": \\"${IMAGE_TAG}\\",
+                         \\"tag\\": \\"latest\\",
                          \\"namespace\\": \\"${NAMESPACE}\\",
                          \\"deployment\\": \\"${DEPLOYMENT_NAME}\\",
                          \\"container\\": \\"${CONTAINER_NAME}\\"
