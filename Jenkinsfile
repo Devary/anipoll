@@ -124,13 +124,14 @@ stage('Prepare Dockerfile') {
          steps {
            script {
              def pom = readFile("${env.CORE_DIR}/pom.xml")
-             def matcher = pom =~ /<version>([^<]+)<\/version>/
+             def versionStart = pom.indexOf('<version>')
+             def versionEnd = pom.indexOf('</version>', versionStart)
 
-             if (!matcher.find()) {
+             if (versionStart == -1 || versionEnd == -1) {
                error('Could not resolve Maven project version from core/pom.xml')
              }
 
-             def resolvedVersion = matcher.group(1).trim()
+             def resolvedVersion = pom.substring(versionStart + 9, versionEnd).trim()
 
              if (!resolvedVersion || resolvedVersion == 'null') {
                error("Could not resolve Maven project version. Got: '${resolvedVersion}'")
