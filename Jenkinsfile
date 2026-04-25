@@ -20,9 +20,10 @@ pipeline {
         RUNDECK_PORT = '4440'
         HARBOR_PROJECT = 'library'
         IMAGE_NAME = 'anipoll'
-        IMAGE_TAG = "${env.BUILD_NUMBER}"
+        IMAGE_TAG = ''
         HARBOR_PREFIX = "${HARBOR_REGISTRY}/${HARBOR_PROJECT}"
-        FULL_IMAGE = "${HARBOR_PREFIX}/${IMAGE_NAME}:${IMAGE_TAG}"
+        FULL_IMAGE = ''
+        LATEST_IMAGE = ''
         DEPLOYMENT_NAME = "${IMAGE_NAME}"
         CONTAINER_NAME = "${IMAGE_NAME}"
         RUNDECK_JOB_ID = "1b180a49-b61b-4733-877e-03f3ea9f6939"
@@ -122,9 +123,19 @@ stage('Prepare Dockerfile') {
        stage('Set Image Names') {
          steps {
            script {
+             env.APP_VERSION = sh(
+               script: "mvn -q -DforceStdout -f ${env.CORE_DIR}/pom.xml help:evaluate -Dexpression=project.version",
+               returnStdout: true
+             ).trim().readLines().findAll { it?.trim() && !it.startsWith('[') }.last()
+
+             if (!env.APP_VERSION?.trim()) {
+               error('Could not resolve Maven project version')
+             }
+
+             env.IMAGE_TAG = env.APP_VERSION
              env.LOCAL_IMAGE = "${env.IMAGE_NAME}:${env.IMAGE_TAG}"
-             env.FULL_IMAGE =
- "${env.HARBOR_REGISTRY}/${env.HARBOR_PROJECT}/${env.IMAGE_NAME}:${env.IMAGE_TAG}"
+             env.FULL_IMAGE = "${env.HARBOR_REGISTRY}/${env.HARBOR_PROJECT}/${env.IMAGE_NAME}:${env.IMAGE_TAG}"
+             env.LATEST_IMAGE = "${env.HARBOR_REGISTRY}/${env.HARBOR_PROJECT}/${env.IMAGE_NAME}:latest"
            }
          }
        }
@@ -163,7 +174,16 @@ stage('Prepare Dockerfile') {
        stage('Push Image') {
          steps {
            sh '''
-             docker push "$FULL_IMAGE"
+             set -euo pipefail
+
+             if docker manifest inspect "$FULL_IMAGE" >/dev/null 2>&1; then
+               echo "Image already exists in Harbor, skipping version push: $FULL_IMAGE"
+             else
+               docker push "$FULL_IMAGE"
+             fi
+
+             docker tag "$LOCAL_IMAGE" "$LATEST_IMAGE"
+             docker push "$LATEST_IMAGE"
            '''
          }
        }
