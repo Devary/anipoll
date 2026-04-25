@@ -1,22 +1,29 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-echo "WORKSPACE=${RD_OPTION_WORKSPACE:-}"
-echo "IMAGE=${RD_OPTION_IMAGE:-}"
-echo "TAG=${RD_OPTION_TAG:-}"
-echo "NAMESPACE=${RD_OPTION_NAMESPACE:-}"
-echo "DEPLOYMENT=${RD_OPTION_DEPLOYMENT:-}"
-echo "CONTAINER=${RD_OPTION_CONTAINER:-}"
-echo "PORT=${RD_OPTION_PORT:-}"
+WORKSPACE="${RD_OPTION_WORKSPACE:-}"
+IMAGE="${RD_OPTION_IMAGE:-}"
+TAG="${RD_OPTION_TAG:-}"
+NAMESPACE="${RD_OPTION_NAMESPACE:-default}"
+DEPLOYMENT="${RD_OPTION_DEPLOYMENT:-anipoll}"
+CONTAINER="${RD_OPTION_CONTAINER:-anipoll}"
+PORT="${RD_OPTION_PORT:-8080}"
 
-WORKSPACE="${RD_OPTION_WORKSPACE}"
+: "${WORKSPACE:?workspace required}"
+: "${IMAGE:?image required}"
+
+if [[ -z "${TAG}" ]]; then
+  TAG="latest"
+fi
+
+echo "WORKSPACE=${WORKSPACE}"
+echo "IMAGE=${IMAGE}"
+echo "TAG=${TAG}"
+echo "NAMESPACE=${NAMESPACE}"
+echo "DEPLOYMENT=${DEPLOYMENT}"
+echo "CONTAINER=${CONTAINER}"
+echo "PORT=${PORT}"
+
 cd "${WORKSPACE}"
 
-./k8s/deploy.sh \
-  "${RD_OPTION_IMAGE:-}" \
-  "${RD_OPTION_TAG:-}" \
-  "${RD_OPTION_NAMESPACE:-default}" \
-  "${RD_OPTION_DEPLOYMENT:-anipoll}" \
-  "${RD_OPTION_CONTAINER:-anipoll}" \
-  "${RD_OPTION_PORT:-8080}" \
-  "${WORKSPACE}"
+bash ./k8s/deploy.sh "${IMAGE}" "${TAG}" "${NAMESPACE}" "${DEPLOYMENT}" "${CONTAINER}" "${PORT}"
