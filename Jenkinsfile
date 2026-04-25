@@ -123,19 +123,26 @@ stage('Prepare Dockerfile') {
        stage('Set Image Names') {
          steps {
            script {
-             env.APP_VERSION = sh(
-               script: "mvn -q -DforceStdout -f ${env.CORE_DIR}/pom.xml help:evaluate -Dexpression=project.version",
+             def resolvedVersion = sh(
+               script: "mvn -q -DforceStdout -f ${env.CORE_DIR}/pom.xml help:evaluate -Dexpression=project.version | tail -n 1",
                returnStdout: true
-             ).trim().readLines().findAll { it?.trim() && !it.startsWith('[') }.last()
+             ).trim()
 
-             if (!env.APP_VERSION?.trim()) {
-               error('Could not resolve Maven project version')
+             if (!resolvedVersion || resolvedVersion == 'null') {
+               error("Could not resolve Maven project version. Got: '${resolvedVersion}'")
              }
 
-             env.IMAGE_TAG = env.APP_VERSION
+             env.APP_VERSION = resolvedVersion
+             env.IMAGE_TAG = resolvedVersion
              env.LOCAL_IMAGE = "${env.IMAGE_NAME}:${env.IMAGE_TAG}"
              env.FULL_IMAGE = "${env.HARBOR_REGISTRY}/${env.HARBOR_PROJECT}/${env.IMAGE_NAME}:${env.IMAGE_TAG}"
              env.LATEST_IMAGE = "${env.HARBOR_REGISTRY}/${env.HARBOR_PROJECT}/${env.IMAGE_NAME}:latest"
+
+             echo "APP_VERSION=${env.APP_VERSION}"
+             echo "IMAGE_TAG=${env.IMAGE_TAG}"
+             echo "LOCAL_IMAGE=${env.LOCAL_IMAGE}"
+             echo "FULL_IMAGE=${env.FULL_IMAGE}"
+             echo "LATEST_IMAGE=${env.LATEST_IMAGE}"
            }
          }
        }
