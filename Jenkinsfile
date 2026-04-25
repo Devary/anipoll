@@ -242,7 +242,13 @@ IMAGE_PATH=${env.HARBOR_REGISTRY}/${env.HARBOR_PROJECT}/${env.IMAGE_NAME}
     post {
         success {
             echo 'Pipeline completed successfully.'
-            echo "Pushed image: ${FULL_IMAGE}"
+            sh '''
+              if [ -f target/.image-vars ]; then
+                . target/.image-vars
+                echo "Pushed image: $FULL_IMAGE"
+                echo "Latest image: $LATEST_IMAGE"
+              fi
+            '''
         }
         failure {
             echo 'Pipeline failed. Check compile/test logs above.'
