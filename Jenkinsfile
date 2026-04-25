@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     tools {
-        jdk 'graalvm17'
+        jdk 'graalvm24'
         maven 'Maven'
     }
 
@@ -21,6 +21,7 @@ pipeline {
         HARBOR_PROJECT = 'library'
         IMAGE_NAME = 'anipoll'
         IMAGE_TAG = ''
+        PROJECT_TYPE = ''
         HARBOR_PREFIX = "${HARBOR_REGISTRY}/${HARBOR_PROJECT}"
         FULL_IMAGE = ''
         LATEST_IMAGE = ''
@@ -38,10 +39,33 @@ pipeline {
             }
         }
 
+        stage('Detect Project Type') {
+            steps {
+                script {
+                    def pom = readFile("${env.CORE_DIR}/pom.xml")
+                    if (pom.contains('quarkus-maven-plugin') || pom.contains('<artifactId>quarkus-bom</artifactId>')) {
+                        env.PROJECT_TYPE = 'quarkus'
+                    } else if (pom.contains('spring-boot-maven-plugin') || pom.contains('org.springframework.boot')) {
+                        env.PROJECT_TYPE = 'spring-boot'
+                    } else {
+                        env.PROJECT_TYPE = 'java'
+                    }
+
+                    echo "PROJECT_TYPE=${env.PROJECT_TYPE}"
+                }
+            }
+        }
+
         stage('Build Core') {
             steps {
                 dir("${env.CORE_DIR}") {
-                    sh 'mvn -B -ntp clean package -DskipTests'
+                    script {
+                        if (env.PROJECT_TYPE == 'quarkus') {
+                            sh 'mvn -B -ntp clean package -DskipTests -Dnative'
+                        } else {
+                            sh 'mvn -B -ntp clean package -DskipTests'
+                        }
+                    }
                 }
             }
         }
@@ -64,22 +88,60 @@ pipeline {
                 branch 'master'
             }
             steps {
-                sh '''
-                    set -e
-                    rm -rf target/package
-                    mkdir -p target/package/apps-repo
+                script {
+                    if (env.PROJECT_TYPE == 'quarkus') {
+                        sh '''
+                            set -euo pipefail
+                            rm -rf target/package
+                            mkdir -p target/package/apps-repo
 
-                    JAR_PATH=$(find core/target -maxdepth 1 -type f -name '*.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar' ! -name '*-runner.jar' | head -n 1)
+                            NATIVE_PATH=$(find core/target -maxdepth 1 -type f -perm -111 ! -name '*.jar' | head -n 1)
 
-                    if [ -z "$JAR_PATH" ]; then
-                      echo "No build jar found in core/target"
-                      exit 1
-                    fi
+                            if [ -z "$NATIVE_PATH" ]; then
+                              echo "No Quarkus native binary found in core/target"
+                              exit 1
+                            fi
 
-                    cp "$JAR_PATH" "target/package/apps-repo/${APP_NAME}.jar"
-                    cd target/package
-                    zip -r "../${APP_NAME}-${APP_VERSION}.zip" .
-                '''
+                            cp "$NATIVE_PATH" "target/package/apps-repo/${APP_NAME}"
+                            cd target/package
+                            zip -r "../${APP_NAME}-${APP_VERSION}.zip" .
+                        '''
+                    } else if (env.PROJECT_TYPE == 'spring-boot') {
+                        sh '''
+                            set -euo pipefail
+                            rm -rf target/package
+                            mkdir -p target/package/apps-repo
+
+                            JAR_PATH=$(find core/target -maxdepth 1 -type f -name '*.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar' | head -n 1)
+
+                            if [ -z "$JAR_PATH" ]; then
+                              echo "No Spring Boot jar found in core/target"
+                              exit 1
+                            fi
+
+                            cp "$JAR_PATH" "target/package/apps-repo/${APP_NAME}.jar"
+                            cd target/package
+                            zip -r "../${APP_NAME}-${APP_VERSION}.zip" .
+                        '''
+                    } else {
+                        sh '''
+                            set -euo pipefail
+                            rm -rf target/package
+                            mkdir -p target/package/apps-repo
+
+                            JAR_PATH=$(find core/target -maxdepth 1 -type f -name '*.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar' ! -name '*-runner.jar' | head -n 1)
+
+                            if [ -z "$JAR_PATH" ]; then
+                              echo "No build jar found in core/target"
+                              exit 1
+                            fi
+
+                            cp "$JAR_PATH" "target/package/apps-repo/${APP_NAME}.jar"
+                            cd target/package
+                            zip -r "../${APP_NAME}-${APP_VERSION}.zip" .
+                        '''
+                    }
+                }
                 archiveArtifacts artifacts: 'target/*.zip', fingerprint: true, onlyIfSuccessful: true
             }
         }
