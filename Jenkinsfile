@@ -138,15 +138,15 @@ stage('Prepare Dockerfile') {
 
              env.APP_VERSION = resolvedVersion
              env.IMAGE_TAG = resolvedVersion
-             env.LOCAL_IMAGE = "${env.IMAGE_NAME}:${env.IMAGE_TAG}"
-             env.FULL_IMAGE = "${env.HARBOR_REGISTRY}/${env.HARBOR_PROJECT}/${env.IMAGE_NAME}:${env.IMAGE_TAG}"
-             env.LATEST_IMAGE = "${env.HARBOR_REGISTRY}/${env.HARBOR_PROJECT}/${env.IMAGE_NAME}:latest"
 
-             echo "APP_VERSION=${env.APP_VERSION}"
-             echo "IMAGE_TAG=${env.IMAGE_TAG}"
-             echo "LOCAL_IMAGE=${env.LOCAL_IMAGE}"
-             echo "FULL_IMAGE=${env.FULL_IMAGE}"
-             echo "LATEST_IMAGE=${env.LATEST_IMAGE}"
+             writeFile file: 'target/.image-vars', text: """IMAGE_TAG=${resolvedVersion}
+LOCAL_IMAGE=${env.IMAGE_NAME}:${resolvedVersion}
+FULL_IMAGE=${env.HARBOR_REGISTRY}/${env.HARBOR_PROJECT}/${env.IMAGE_NAME}:${resolvedVersion}
+LATEST_IMAGE=${env.HARBOR_REGISTRY}/${env.HARBOR_PROJECT}/${env.IMAGE_NAME}:latest
+IMAGE_PATH=${env.HARBOR_REGISTRY}/${env.HARBOR_PROJECT}/${env.IMAGE_NAME}
+"""
+
+             sh 'cat target/.image-vars'
            }
          }
        }
@@ -155,6 +155,8 @@ stage('Prepare Dockerfile') {
        stage('Build Image') {
          steps {
            sh '''
+             set -euo pipefail
+             . target/.image-vars
              docker build -t "$LOCAL_IMAGE" .
            '''
          }
@@ -177,6 +179,8 @@ stage('Prepare Dockerfile') {
        stage('Tag Image') {
          steps {
            sh '''
+             set -euo pipefail
+             . target/.image-vars
              docker tag "$LOCAL_IMAGE" "$FULL_IMAGE"
            '''
          }
@@ -186,6 +190,7 @@ stage('Prepare Dockerfile') {
          steps {
            sh '''
              set -euo pipefail
+             . target/.image-vars
 
              if docker manifest inspect "$FULL_IMAGE" >/dev/null 2>&1; then
                echo "Image already exists in Harbor, skipping version push: $FULL_IMAGE"
@@ -205,7 +210,7 @@ stage('Prepare Dockerfile') {
                  sh '''
                    set -euo pipefail
 
-                   IMAGE_PATH="${HARBOR_REGISTRY}/${HARBOR_PROJECT}/${IMAGE_NAME}"
+                   . target/.image-vars
 
                    echo "IMAGE_PATH=$IMAGE_PATH"
                    echo "IMAGE_TAG=latest"
