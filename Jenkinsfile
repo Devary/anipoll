@@ -67,10 +67,7 @@ pipeline {
 
         stage('Build Native Image') {
             when {
-                allOf {
-                    branch 'master'
-                    expression { env.PROJECT_TYPE == 'quarkus' }
-                }
+                expression { env.PROJECT_TYPE == 'quarkus' }
             }
             steps {
                 dir("${env.CORE_DIR}") {
