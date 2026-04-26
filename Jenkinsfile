@@ -44,15 +44,16 @@ pipeline {
             steps {
                 script {
                     def pom = readFile("${env.CORE_DIR}/pom.xml")
+                    def projectType = 'java'
                     if (pom.contains('quarkus-maven-plugin') || pom.contains('<artifactId>quarkus-bom</artifactId>')) {
-                        env.PROJECT_TYPE = 'quarkus'
+                        projectType = 'quarkus'
                     } else if (pom.contains('spring-boot-maven-plugin') || pom.contains('org.springframework.boot')) {
-                        env.PROJECT_TYPE = 'spring-boot'
-                    } else {
-                        env.PROJECT_TYPE = 'java'
+                        projectType = 'spring-boot'
                     }
 
-                    echo "PROJECT_TYPE=${env.PROJECT_TYPE}"
+                    env.PROJECT_TYPE = projectType
+                    writeFile file: 'target/.project-type', text: "${projectType}\n"
+                    echo "PROJECT_TYPE=${projectType}"
                 }
             }
         }
@@ -68,14 +69,15 @@ pipeline {
         stage('Build Native Image') {
             steps {
                 script {
-                    if (env.PROJECT_TYPE == 'quarkus') {
+                    def projectType = readFile('target/.project-type').trim()
+                    if (projectType == 'quarkus') {
                         dir("${env.CORE_DIR}") {
                             withEnv(["JAVA_HOME=${env.GRAALVM24_HOME}", "PATH+GRAAL=${env.GRAALVM24_HOME}/bin"]) {
                                 sh 'mvn -B -ntp package -DskipTests -Dnative'
                             }
                         }
                     } else {
-                        echo "Skipping native image build for PROJECT_TYPE=${env.PROJECT_TYPE}"
+                        echo "Skipping native image build for PROJECT_TYPE=${projectType}"
                     }
                 }
             }
@@ -100,7 +102,8 @@ pipeline {
             }
             steps {
                 script {
-                    if (env.PROJECT_TYPE == 'quarkus') {
+                    def projectType = readFile('target/.project-type').trim()
+                    if (projectType == 'quarkus') {
                         sh '''
                             set -euo pipefail
                             rm -rf target/package
@@ -117,7 +120,7 @@ pipeline {
                             cd target/package
                             zip -r "../${APP_NAME}-${APP_VERSION}.zip" .
                         '''
-                    } else if (env.PROJECT_TYPE == 'spring-boot') {
+                    } else if (projectType == 'spring-boot') {
                         sh '''
                             set -euo pipefail
                             rm -rf target/package
