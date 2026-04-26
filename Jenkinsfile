@@ -66,13 +66,16 @@ pipeline {
         }
 
         stage('Build Native Image') {
-            when {
-                expression { env.PROJECT_TYPE == 'quarkus' }
-            }
             steps {
-                dir("${env.CORE_DIR}") {
-                    withEnv(["JAVA_HOME=${env.GRAALVM24_HOME}", "PATH+GRAAL=${env.GRAALVM24_HOME}/bin"]) {
-                        sh 'mvn -B -ntp package -DskipTests -Dnative'
+                script {
+                    if (env.PROJECT_TYPE == 'quarkus') {
+                        dir("${env.CORE_DIR}") {
+                            withEnv(["JAVA_HOME=${env.GRAALVM24_HOME}", "PATH+GRAAL=${env.GRAALVM24_HOME}/bin"]) {
+                                sh 'mvn -B -ntp package -DskipTests -Dnative'
+                            }
+                        }
+                    } else {
+                        echo "Skipping native image build for PROJECT_TYPE=${env.PROJECT_TYPE}"
                     }
                 }
             }
