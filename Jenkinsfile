@@ -243,7 +243,13 @@ pipeline {
             steps {
                 script {
                     def projectType = env.PROJECT_TYPE?.trim()
-                    def resolvedVersion = readFile('target/.resolved-version').trim()
+                    def resolvedVersion = env.APP_VERSION?.trim()
+                    if (!resolvedVersion) {
+                        resolvedVersion = sh(
+                            script: "mvn -B -ntp -q help:evaluate -Dexpression=project.version -DforceStdout",
+                            returnStdout: true
+                        ).trim()
+                    }
                     env.APP_VERSION = resolvedVersion
 
                     if (projectType == 'quarkus' && params.GENERATE_NATIVE_IMAGE) {
@@ -505,7 +511,7 @@ IMAGE_PATH=${env.HARBOR_REGISTRY}/${env.HARBOR_PROJECT}/${env.IMAGE_NAME}
                     sshagent(credentials: ['github-ssh']) {
                         sh '''
                           set -euxo pipefail
-                          RESOLVED_VERSION=$(cat target/.resolved-version)
+                          RESOLVED_VERSION="${APP_VERSION}"
                           git config user.name "jenkins"
                           git config user.email "jenkins@local"
                           git add pom.xml */pom.xml */*/pom.xml 2>/dev/null || true
