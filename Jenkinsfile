@@ -125,7 +125,8 @@ pipeline {
                 script {
                     sh 'mkdir -p target'
                     def rootPom = readFile('pom.xml')
-                    def appName = sh(script: 'basename "$WORKSPACE"', returnStdout: true).trim()
+                    def remoteUrl = sh(script: 'git remote get-url origin', returnStdout: true).trim()
+                    def appName = remoteUrl.tokenize('/').last().replace('.git', '').replaceAll(/^.*:/, '')
                     def buildDir = '.'
                     def candidateModules = []
 
@@ -150,10 +151,9 @@ pipeline {
                     }
 
                     def rootProjectType = moduleProjectType(rootPom)
-                    def rootPackaging = packagingOf(rootPom)
                     def projectType = rootProjectType
 
-                    if (rootPackaging == 'pom' && candidateModules) {
+                    if (candidateModules) {
                         def realModules = candidateModules.findAll { module ->
                             fileExists("${module}/pom.xml") && packagingOf(readFile("${module}/pom.xml")) != 'pom'
                         }
@@ -175,6 +175,8 @@ pipeline {
                                 buildDir = preferredModule
                             } else if (realModules) {
                                 buildDir = realModules[0]
+                            } else if (rootProjectType != 'java' && packagingOf(rootPom) != 'pom') {
+                                buildDir = '.'
                             } else {
                                 buildDir = candidateModules[0]
                             }
@@ -192,7 +194,7 @@ pipeline {
                     env.BUILD_DIR = buildDir
                     env.PROJECT_TYPE = projectType
 
-                    writeFile file: 'target/.project-layout', text: "APP_NAME=${appName}\nBUILD_DIR=${buildDir}\nPROJECT_TYPE=${projectType}\n"
+                    writeFile file: 'target/.project-layout', text: "APP_NAME=${appName}\nBUILD_DIR=${buildDir}\nPROJECT_TYPE=${projectType}\nREMOTE_URL=${remoteUrl}\n"
                     echo "APP_NAME=${appName}"
                     echo "BUILD_DIR=${buildDir}"
                     echo "PROJECT_TYPE=${projectType}"
@@ -262,7 +264,8 @@ pipeline {
                         ).trim()
                     }
                     if (!appName) {
-                        appName = sh(script: 'basename "$WORKSPACE"', returnStdout: true).trim()
+                        def remoteUrl = sh(script: 'git remote get-url origin', returnStdout: true).trim()
+                        appName = remoteUrl.tokenize('/').last().replace('.git', '').replaceAll(/^.*:/, '')
                         env.APP_NAME = appName
                     }
                     env.APP_VERSION = resolvedVersion
