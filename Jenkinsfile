@@ -46,6 +46,7 @@ pipeline {
         string(name: 'MANUAL_VERSION', defaultValue: '', description: 'Optional: override the Maven version for this build')
         booleanParam(name: 'GENERATE_NATIVE_IMAGE', defaultValue: false, description: 'Build the Quarkus native image for this run')
         booleanParam(name: 'PACKAGE_ONLY', defaultValue: false, description: 'Package/publish to Maven only and skip image build + deployment flow')
+        booleanParam(name: 'SKIP_TESTS', defaultValue: false, description: 'Skip Maven test execution in build and test stages')
     }
 
     options {
@@ -165,6 +166,9 @@ pipeline {
         }
 
         stage('Test Core') {
+            when {
+                expression { return !params.SKIP_TESTS }
+            }
             steps {
                 dir("${env.CORE_DIR}") {
                     sh 'mvn -B -ntp test'
