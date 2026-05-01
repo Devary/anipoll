@@ -418,7 +418,7 @@ IMAGE_PATH=${env.HARBOR_REGISTRY}/${env.HARBOR_PROJECT}/${env.IMAGE_NAME}
                       . target/.image-vars
 
                       echo "IMAGE_PATH=$IMAGE_PATH"
-                      echo "IMAGE_TAG=latest"
+                      echo "IMAGE_TAG=$IMAGE_TAG"
                       echo "NAMESPACE="
                       echo "DEPLOYMENT_NAME=$DEPLOYMENT_NAME"
                       echo "CONTAINER_NAME=$CONTAINER_NAME"
@@ -430,7 +430,7 @@ IMAGE_PATH=${env.HARBOR_REGISTRY}/${env.HARBOR_PROJECT}/${env.IMAGE_NAME}
                           \\"options\\": {
                             \\"workspace\\": \\"${WORKSPACE}\\",
                             \\"image\\": \\"${IMAGE_PATH}\\",
-                            \\"tag\\": \\"latest\\",
+                            \\"tag\\": \\"${IMAGE_TAG}\\",
                             \\"namespace\\": \\"${NAMESPACE}\\",
                             \\"deployment\\": \\"${DEPLOYMENT_NAME}\\",
                             \\"container\\": \\"${CONTAINER_NAME}\\"
@@ -449,11 +449,12 @@ IMAGE_PATH=${env.HARBOR_REGISTRY}/${env.HARBOR_PROJECT}/${env.IMAGE_NAME}
                     sshagent(credentials: ['github-ssh']) {
                         sh '''
                           set -euxo pipefail
+                          RESOLVED_VERSION=$(cat target/.resolved-version)
                           git config user.name "jenkins"
                           git config user.email "jenkins@local"
                           git add pom.xml core/pom.xml service-template/pom.xml quarkus-service-template/pom.xml chassis/pom.xml 2>/dev/null || true
                           if ! git diff --cached --quiet; then
-                            git commit -m "Bump Maven version to ${APP_VERSION} [skip ci]"
+                            git commit -m "Bump Maven version to ${RESOLVED_VERSION} [skip ci]"
                             REMOTE_URL=$(git remote get-url origin)
                             echo "Current origin: $REMOTE_URL"
                             if echo "$REMOTE_URL" | grep -q '^https://github.com/'; then
