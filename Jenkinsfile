@@ -300,7 +300,7 @@ pipeline {
                                 *" \$c "*) continue ;;
                               esac
                               seen="\$seen\$c "
-                              if find "\$c/target" -maxdepth 1 -type f \( -name '*.jar' -o -perm -111 \) 2>/dev/null | grep -q .; then
+                              if find "\$c/target" -maxdepth 1 -type f -name '*.jar' 2>/dev/null | grep -q . || find "\$c/target" -maxdepth 1 -type f -perm -111 2>/dev/null | grep -q .; then
                                 printf '%s' "\$c"
                                 exit 0
                               fi
