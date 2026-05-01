@@ -151,12 +151,22 @@ pipeline {
                     }
 
                     def rootProjectType = moduleProjectType(rootPom)
+                    def rootPackaging = packagingOf(rootPom)
                     def projectType = rootProjectType
+
+                    echo "REMOTE_URL=${remoteUrl}"
+                    echo "CANDIDATE_MODULES=${candidateModules.join(',')}"
+                    echo "ROOT_PACKAGING=${rootPackaging}"
+                    echo "ROOT_PROJECT_TYPE=${rootProjectType}"
 
                     if (candidateModules) {
                         def realModules = candidateModules.findAll { module ->
                             fileExists("${module}/pom.xml") && packagingOf(readFile("${module}/pom.xml")) != 'pom'
                         }
+
+                        def existingModules = candidateModules.findAll { module -> fileExists("${module}/pom.xml") }
+                        echo "EXISTING_MODULES=${existingModules.join(',')}"
+                        echo "REAL_MODULES=${realModules.join(',')}"
 
                         if (fileExists('core/pom.xml') && packagingOf(readFile('core/pom.xml')) != 'pom') {
                             buildDir = 'core'
@@ -175,8 +185,10 @@ pipeline {
                                 buildDir = preferredModule
                             } else if (realModules) {
                                 buildDir = realModules[0]
-                            } else if (rootProjectType != 'java' && packagingOf(rootPom) != 'pom') {
+                            } else if (rootProjectType != 'java' && rootPackaging != 'pom') {
                                 buildDir = '.'
+                            } else if (existingModules) {
+                                buildDir = existingModules[0]
                             } else {
                                 buildDir = candidateModules[0]
                             }
@@ -198,6 +210,7 @@ pipeline {
                     echo "APP_NAME=${appName}"
                     echo "BUILD_DIR=${buildDir}"
                     echo "PROJECT_TYPE=${projectType}"
+                    sh "ls -la ${buildDir} || true"
                 }
             }
         }
