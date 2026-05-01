@@ -230,8 +230,22 @@ pipeline {
             steps {
                 script {
                     def projectType = env.PROJECT_TYPE?.trim()
+                    def buildDir = env.BUILD_DIR?.trim() ?: '.'
+                    if (!projectType && fileExists('target/.project-layout')) {
+                        def layout = readFile('target/.project-layout')
+                        def typeLine = layout.readLines().find { it.startsWith('PROJECT_TYPE=') }
+                        def buildDirLine = layout.readLines().find { it.startsWith('BUILD_DIR=') }
+                        if (typeLine) {
+                            projectType = typeLine.split('=', 2)[1].trim()
+                            env.PROJECT_TYPE = projectType
+                        }
+                        if (buildDirLine) {
+                            buildDir = buildDirLine.split('=', 2)[1].trim()
+                            env.BUILD_DIR = buildDir
+                        }
+                    }
                     if (projectType == 'quarkus') {
-                        dir("${env.BUILD_DIR}") {
+                        dir(buildDir) {
                             withEnv(["JAVA_HOME=${env.GRAALVM24_HOME}", "PATH+GRAAL=${env.GRAALVM24_HOME}/bin"]) {
                                 sh 'mvn -B -ntp package -DskipTests -Dnative'
                             }
@@ -269,6 +283,23 @@ pipeline {
                     def resolvedVersion = env.APP_VERSION?.trim()
                     def appName = env.APP_NAME?.trim()
                     def buildDir = env.BUILD_DIR?.trim() ?: '.'
+                    if (fileExists('target/.project-layout')) {
+                        def layout = readFile('target/.project-layout')
+                        if (!projectType) {
+                            def typeLine = layout.readLines().find { it.startsWith('PROJECT_TYPE=') }
+                            if (typeLine) {
+                                projectType = typeLine.split('=', 2)[1].trim()
+                                env.PROJECT_TYPE = projectType
+                            }
+                        }
+                        if (!env.BUILD_DIR?.trim() || buildDir == '.') {
+                            def buildDirLine = layout.readLines().find { it.startsWith('BUILD_DIR=') }
+                            if (buildDirLine) {
+                                buildDir = buildDirLine.split('=', 2)[1].trim()
+                                env.BUILD_DIR = buildDir
+                            }
+                        }
+                    }
 
                     if (!resolvedVersion) {
                         resolvedVersion = sh(
