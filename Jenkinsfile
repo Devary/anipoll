@@ -283,6 +283,35 @@ pipeline {
                     }
                     env.APP_VERSION = resolvedVersion
 
+                    def effectiveBuildDir = sh(
+                        script: """
+                            set -euo pipefail
+                            candidates=()
+                            [ -n '${buildDir}' ] && candidates+=('${buildDir}')
+                            [ '${buildDir}' != '.' ] || candidates+=('.')
+                            [ -d core/target ] && candidates+=('core')
+                            for d in */target; do
+                              [ -d "\$d" ] || continue
+                              candidates+=("\${d%/target}")
+                            done
+                            seen=' '
+                            for c in "\${candidates[@]}"; do
+                              case "\$seen" in
+                                *" \$c "*) continue ;;
+                              esac
+                              seen="\$seen\$c "
+                              if find "\$c/target" -maxdepth 1 -type f \( -name '*.jar' -o -perm -111 \) 2>/dev/null | grep -q .; then
+                                printf '%s' "\$c"
+                                exit 0
+                              fi
+                            done
+                            exit 1
+                        """,
+                        returnStdout: true
+                    ).trim()
+
+                    echo "PACKAGE_BUILD_DIR=${effectiveBuildDir}"
+
                     if (projectType == 'quarkus' && params.GENERATE_NATIVE_IMAGE) {
                         sh """
                             set -euo pipefail
@@ -290,10 +319,11 @@ pipeline {
                             rm -rf target/package
                             mkdir -p target/package/apps-repo
 
-                            NATIVE_PATH=\$(find ${buildDir}/target -maxdepth 1 -type f -perm -111 ! -name '*.jar' | head -n 1)
+                            NATIVE_PATH=\$(find ${effectiveBuildDir}/target -maxdepth 1 -type f -perm -111 ! -name '*.jar' | head -n 1)
 
                             if [ -z "\$NATIVE_PATH" ]; then
-                              echo "No Quarkus native binary found in ${buildDir}/target"
+                              echo "No Quarkus native binary found in ${effectiveBuildDir}/target"
+                              find . -maxdepth 3 -type d -name target -print || true
                               exit 1
                             fi
 
@@ -308,10 +338,11 @@ pipeline {
                             rm -rf target/package
                             mkdir -p target/package/apps-repo
 
-                            JAR_PATH=\$(find ${buildDir}/target -maxdepth 1 -type f -name '*.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar' ! -name '*-runner.jar' | head -n 1)
+                            JAR_PATH=\$(find ${effectiveBuildDir}/target -maxdepth 1 -type f -name '*.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar' ! -name '*-runner.jar' | head -n 1)
 
                             if [ -z "\$JAR_PATH" ]; then
-                              echo "No Quarkus jar found in ${buildDir}/target"
+                              echo "No Quarkus jar found in ${effectiveBuildDir}/target"
+                              find . -maxdepth 3 -type d -name target -print || true
                               exit 1
                             fi
 
@@ -326,10 +357,11 @@ pipeline {
                             rm -rf target/package
                             mkdir -p target/package/apps-repo
 
-                            JAR_PATH=\$(find ${buildDir}/target -maxdepth 1 -type f -name '*.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar' | head -n 1)
+                            JAR_PATH=\$(find ${effectiveBuildDir}/target -maxdepth 1 -type f -name '*.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar' | head -n 1)
 
                             if [ -z "\$JAR_PATH" ]; then
-                              echo "No Spring Boot jar found in ${buildDir}/target"
+                              echo "No Spring Boot jar found in ${effectiveBuildDir}/target"
+                              find . -maxdepth 3 -type d -name target -print || true
                               exit 1
                             fi
 
@@ -344,10 +376,11 @@ pipeline {
                             rm -rf target/package
                             mkdir -p target/package/apps-repo
 
-                            JAR_PATH=\$(find ${buildDir}/target -maxdepth 1 -type f -name '*.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar' ! -name '*-runner.jar' | head -n 1)
+                            JAR_PATH=\$(find ${effectiveBuildDir}/target -maxdepth 1 -type f -name '*.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar' ! -name '*-runner.jar' | head -n 1)
 
                             if [ -z "\$JAR_PATH" ]; then
-                              echo "No build jar found in ${buildDir}/target"
+                              echo "No build jar found in ${effectiveBuildDir}/target"
+                              find . -maxdepth 3 -type d -name target -print || true
                               exit 1
                             fi
 
