@@ -601,27 +601,27 @@ IMAGE_PATH=${env.HARBOR_REGISTRY}/${env.HARBOR_PROJECT}/${appName}
             script {
                 if (env.BRANCH_NAME == 'master') {
                     sshagent(credentials: ['github-ssh']) {
-                        sh '''
+                        sh """
                           set -euxo pipefail
-                          RESOLVED_VERSION="${APP_VERSION}"
-                          git config user.name "jenkins"
-                          git config user.email "jenkins@local"
+                          RESOLVED_VERSION='${env.APP_VERSION}'
+                          git config user.name \"jenkins\"
+                          git config user.email \"jenkins@local\"
                           git add pom.xml */pom.xml */*/pom.xml 2>/dev/null || true
                           if ! git diff --cached --quiet; then
-                            git commit -m "Bump Maven version to ${RESOLVED_VERSION} [skip ci]"
+                            git commit -m \"Bump Maven version to ${RESOLVED_VERSION} [skip ci]\"
                             REMOTE_URL=$(git remote get-url origin)
-                            echo "Current origin: $REMOTE_URL"
-                            if echo "$REMOTE_URL" | grep -q '^https://github.com/'; then
-                              SSH_URL=$(printf '%s' "$REMOTE_URL" | sed -E 's#https://github.com/#git@github.com:#')
-                              git remote set-url origin "$SSH_URL"
-                              echo "Rewrote origin to SSH: $SSH_URL"
+                            echo \"Current origin: $REMOTE_URL\"
+                            if echo \"$REMOTE_URL\" | grep -q '^https://github.com/'; then
+                              SSH_URL=$(printf '%s' \"$REMOTE_URL\" | sed -E 's#https://github.com/#git@github.com:#')
+                              git remote set-url origin \"$SSH_URL\"
+                              echo \"Rewrote origin to SSH: $SSH_URL\"
                             fi
                             git remote -v
                             git push origin HEAD:${BRANCH_NAME}
                           else
-                            echo "No pom version changes to commit."
+                            echo \"No pom version changes to commit.\"
                           fi
-                        '''
+                        """
                     }
                 } else {
                     echo "Skipping pom commit/push on branch ${env.BRANCH_NAME}"
