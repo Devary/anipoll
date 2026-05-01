@@ -144,17 +144,24 @@ pipeline {
                         return 'java'
                     }
 
+                    def packagingOf = { String pomText ->
+                        def matcher = pomText =~ /<packaging>([^<]+)<\/packaging>/
+                        matcher.find() ? matcher.group(1).trim() : 'jar'
+                    }
+
                     def rootProjectType = moduleProjectType(rootPom)
+                    def rootPackaging = packagingOf(rootPom)
                     def projectType = rootProjectType
 
-                    if (rootProjectType == 'java' && candidateModules) {
-                        if (fileExists('core/pom.xml')) {
+                    if (rootPackaging == 'pom' && candidateModules) {
+                        def realModules = candidateModules.findAll { module ->
+                            fileExists("${module}/pom.xml") && packagingOf(readFile("${module}/pom.xml")) != 'pom'
+                        }
+
+                        if (fileExists('core/pom.xml') && packagingOf(readFile('core/pom.xml')) != 'pom') {
                             buildDir = 'core'
                         } else {
-                            def matchedModule = candidateModules.find { module ->
-                                if (!fileExists("${module}/pom.xml")) {
-                                    return false
-                                }
+                            def preferredModule = realModules.find { module ->
                                 def modulePom = readFile("${module}/pom.xml")
                                 def moduleType = moduleProjectType(modulePom)
                                 if (moduleType != 'java') {
@@ -163,16 +170,19 @@ pipeline {
                                 }
                                 return false
                             }
-                            if (matchedModule) {
-                                buildDir = matchedModule
+
+                            if (preferredModule) {
+                                buildDir = preferredModule
+                            } else if (realModules) {
+                                buildDir = realModules[0]
                             } else {
                                 buildDir = candidateModules[0]
                             }
                         }
+                    }
 
-                        if (fileExists("${buildDir}/pom.xml")) {
-                            projectType = moduleProjectType(readFile("${buildDir}/pom.xml"))
-                        }
+                    if (fileExists("${buildDir}/pom.xml")) {
+                        projectType = moduleProjectType(readFile("${buildDir}/pom.xml"))
                     }
 
                     env.APP_NAME = appName
@@ -183,8 +193,6 @@ pipeline {
                     env.PROJECT_TYPE = projectType
 
                     writeFile file: 'target/.project-layout', text: "APP_NAME=${appName}\nBUILD_DIR=${buildDir}\nPROJECT_TYPE=${projectType}\n"
-                    writeFile file: 'target/.project-type', text: "${projectType}\n"
-
                     echo "APP_NAME=${appName}"
                     echo "BUILD_DIR=${buildDir}"
                     echo "PROJECT_TYPE=${projectType}"
@@ -244,11 +252,18 @@ pipeline {
                 script {
                     def projectType = env.PROJECT_TYPE?.trim()
                     def resolvedVersion = env.APP_VERSION?.trim()
+                    def appName = env.APP_NAME?.trim()
+                    def buildDir = env.BUILD_DIR?.trim() ?: '.'
+
                     if (!resolvedVersion) {
                         resolvedVersion = sh(
                             script: "mvn -B -ntp -q help:evaluate -Dexpression=project.version -DforceStdout",
                             returnStdout: true
                         ).trim()
+                    }
+                    if (!appName) {
+                        appName = sh(script: 'basename "$WORKSPACE"', returnStdout: true).trim()
+                        env.APP_NAME = appName
                     }
                     env.APP_VERSION = resolvedVersion
 
@@ -259,16 +274,16 @@ pipeline {
                             rm -rf target/package
                             mkdir -p target/package/apps-repo
 
-                            NATIVE_PATH=\$(find ${env.BUILD_DIR}/target -maxdepth 1 -type f -perm -111 ! -name '*.jar' | head -n 1)
+                            NATIVE_PATH=\$(find ${buildDir}/target -maxdepth 1 -type f -perm -111 ! -name '*.jar' | head -n 1)
 
                             if [ -z "\$NATIVE_PATH" ]; then
-                              echo "No Quarkus native binary found in ${env.BUILD_DIR}/target"
+                              echo "No Quarkus native binary found in ${buildDir}/target"
                               exit 1
                             fi
 
-                            cp "\$NATIVE_PATH" "target/package/apps-repo/${env.APP_NAME}"
+                            cp "\$NATIVE_PATH" "target/package/apps-repo/${appName}"
                             cd target/package
-                            zip -r "../${env.APP_NAME}-\${env.APP_VERSION}.zip" .
+                            zip -r "../${appName}-\${APP_VERSION}.zip" .
                         """
                     } else if (projectType == 'quarkus') {
                         sh """
@@ -277,16 +292,16 @@ pipeline {
                             rm -rf target/package
                             mkdir -p target/package/apps-repo
 
-                            JAR_PATH=\$(find ${env.BUILD_DIR}/target -maxdepth 1 -type f -name '*.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar' ! -name '*-runner.jar' | head -n 1)
+                            JAR_PATH=\$(find ${buildDir}/target -maxdepth 1 -type f -name '*.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar' ! -name '*-runner.jar' | head -n 1)
 
                             if [ -z "\$JAR_PATH" ]; then
-                              echo "No Quarkus jar found in ${env.BUILD_DIR}/target"
+                              echo "No Quarkus jar found in ${buildDir}/target"
                               exit 1
                             fi
 
-                            cp "\$JAR_PATH" "target/package/apps-repo/${env.APP_NAME}.jar"
+                            cp "\$JAR_PATH" "target/package/apps-repo/${appName}.jar"
                             cd target/package
-                            zip -r "../${env.APP_NAME}-\${env.APP_VERSION}.zip" .
+                            zip -r "../${appName}-\${APP_VERSION}.zip" .
                         """
                     } else if (projectType == 'spring-boot') {
                         sh """
@@ -295,16 +310,16 @@ pipeline {
                             rm -rf target/package
                             mkdir -p target/package/apps-repo
 
-                            JAR_PATH=\$(find ${env.BUILD_DIR}/target -maxdepth 1 -type f -name '*.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar' | head -n 1)
+                            JAR_PATH=\$(find ${buildDir}/target -maxdepth 1 -type f -name '*.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar' | head -n 1)
 
                             if [ -z "\$JAR_PATH" ]; then
-                              echo "No Spring Boot jar found in ${env.BUILD_DIR}/target"
+                              echo "No Spring Boot jar found in ${buildDir}/target"
                               exit 1
                             fi
 
-                            cp "\$JAR_PATH" "target/package/apps-repo/${env.APP_NAME}.jar"
+                            cp "\$JAR_PATH" "target/package/apps-repo/${appName}.jar"
                             cd target/package
-                            zip -r "../${env.APP_NAME}-\${env.APP_VERSION}.zip" .
+                            zip -r "../${appName}-\${APP_VERSION}.zip" .
                         """
                     } else {
                         sh """
@@ -313,16 +328,16 @@ pipeline {
                             rm -rf target/package
                             mkdir -p target/package/apps-repo
 
-                            JAR_PATH=\$(find ${env.BUILD_DIR}/target -maxdepth 1 -type f -name '*.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar' ! -name '*-runner.jar' | head -n 1)
+                            JAR_PATH=\$(find ${buildDir}/target -maxdepth 1 -type f -name '*.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar' ! -name '*-runner.jar' | head -n 1)
 
                             if [ -z "\$JAR_PATH" ]; then
-                              echo "No build jar found in ${env.BUILD_DIR}/target"
+                              echo "No build jar found in ${buildDir}/target"
                               exit 1
                             fi
 
-                            cp "\$JAR_PATH" "target/package/apps-repo/${env.APP_NAME}.jar"
+                            cp "\$JAR_PATH" "target/package/apps-repo/${appName}.jar"
                             cd target/package
-                            zip -r "../${env.APP_NAME}-\${env.APP_VERSION}.zip" .
+                            zip -r "../${appName}-\${APP_VERSION}.zip" .
                         """
                     }
                 }
@@ -367,8 +382,8 @@ CMD ["sh", "-c", "echo hello from jenkins harbor test && sleep 3600"]
                   echo "IMAGE_TAG=$IMAGE_TAG"
                   echo "LOCAL_IMAGE=$LOCAL_IMAGE"
                   echo "FULL_IMAGE=$FULL_IMAGE"
-                  echo "DEPLOYMENT_NAME=$IMAGE_NAME"
-                  echo "CONTAINER_NAME=$IMAGE_NAME"
+                  echo "DEPLOYMENT_NAME=$DEPLOYMENT_NAME"
+                  echo "CONTAINER_NAME=$CONTAINER_NAME"
                 '''
             }
         }
@@ -380,10 +395,13 @@ CMD ["sh", "-c", "echo hello from jenkins harbor test && sleep 3600"]
             steps {
                 script {
                     sh 'mkdir -p target'
-                    def resolvedVersion = sh(
-                        script: "mvn -B -ntp -q help:evaluate -Dexpression=project.version -DforceStdout",
-                        returnStdout: true
-                    ).trim()
+                    def resolvedVersion = env.APP_VERSION?.trim()
+                    if (!resolvedVersion) {
+                        resolvedVersion = sh(
+                            script: "mvn -B -ntp -q help:evaluate -Dexpression=project.version -DforceStdout",
+                            returnStdout: true
+                        ).trim()
+                    }
 
                     if (!resolvedVersion || resolvedVersion == 'null') {
                         error("Could not resolve Maven project version. Got: '${resolvedVersion}'")
@@ -481,7 +499,7 @@ IMAGE_PATH=${env.HARBOR_REGISTRY}/${env.HARBOR_PROJECT}/${env.IMAGE_NAME}
 
                       echo "IMAGE_PATH=$IMAGE_PATH"
                       echo "IMAGE_TAG=$IMAGE_TAG"
-                      echo "NAMESPACE="
+                      echo "NAMESPACE=$NAMESPACE"
                       echo "DEPLOYMENT_NAME=$DEPLOYMENT_NAME"
                       echo "CONTAINER_NAME=$CONTAINER_NAME"
 
@@ -494,8 +512,8 @@ IMAGE_PATH=${env.HARBOR_REGISTRY}/${env.HARBOR_PROJECT}/${env.IMAGE_NAME}
                             \\"image\\": \\"${IMAGE_PATH}\\",
                             \\"tag\\": \\"${IMAGE_TAG}\\",
                             \\"namespace\\": \\"${NAMESPACE}\\",
-                            \\"deployment\\": \\"${env.DEPLOYMENT_NAME}\\",
-                            \\"container\\": \\"${env.CONTAINER_NAME}\\"
+                            \\"deployment\\": \\"${DEPLOYMENT_NAME}\\",
+                            \\"container\\": \\"${CONTAINER_NAME}\\"
                           }
                         }"
                     '''
@@ -511,7 +529,7 @@ IMAGE_PATH=${env.HARBOR_REGISTRY}/${env.HARBOR_PROJECT}/${env.IMAGE_NAME}
                     sshagent(credentials: ['github-ssh']) {
                         sh '''
                           set -euxo pipefail
-                          RESOLVED_VERSION="${env.APP_VERSION}"
+                          RESOLVED_VERSION="${APP_VERSION}"
                           git config user.name "jenkins"
                           git config user.email "jenkins@local"
                           git add pom.xml */pom.xml */*/pom.xml 2>/dev/null || true
@@ -553,7 +571,7 @@ IMAGE_PATH=${env.HARBOR_REGISTRY}/${env.HARBOR_PROJECT}/${env.IMAGE_NAME}
             echo 'Pipeline failed. Check compile/test logs above.'
         }
         always {
-         sh 'docker logout ${HARBOR_REGISTRY} || true'
-       }
+            sh 'docker logout ${HARBOR_REGISTRY} || true'
+        }
     }
 }
