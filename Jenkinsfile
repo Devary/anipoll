@@ -608,7 +608,7 @@ IMAGE_PATH=${env.HARBOR_REGISTRY}/${env.HARBOR_PROJECT}/${appName}
                           git config user.email \"jenkins@local\"
                           git add pom.xml */pom.xml */*/pom.xml 2>/dev/null || true
                           if ! git diff --cached --quiet; then
-                            git commit -m \"Bump Maven version to ${RESOLVED_VERSION} [skip ci]\"
+                            git commit -m \"Bump Maven version to $RESOLVED_VERSION [skip ci]\"
                             REMOTE_URL=$(git remote get-url origin)
                             echo \"Current origin: $REMOTE_URL\"
                             if echo \"$REMOTE_URL\" | grep -q '^https://github.com/'; then
