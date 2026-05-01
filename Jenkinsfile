@@ -404,7 +404,7 @@ pipeline {
             steps {
                 script {
                     def deployConfigured = sh(
-                        script: "grep -q '<distributionManagement>\|<id>use-jfrog</id>' pom.xml && echo yes || echo no",
+                        script: "(grep -q '<distributionManagement>' pom.xml || grep -q '<id>use-jfrog</id>' pom.xml) && echo yes || echo no",
                         returnStdout: true
                     ).trim()
 
