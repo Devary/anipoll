@@ -206,7 +206,7 @@ pipeline {
             }
             steps {
                 script {
-                    def projectType = readFile('target/.project-type').trim()
+                    def projectType = env.PROJECT_TYPE?.trim()
                     if (projectType == 'quarkus') {
                         dir("${env.BUILD_DIR}") {
                             withEnv(["JAVA_HOME=${env.GRAALVM24_HOME}", "PATH+GRAAL=${env.GRAALVM24_HOME}/bin"]) {
@@ -242,7 +242,7 @@ pipeline {
             }
             steps {
                 script {
-                    def projectType = readFile('target/.project-type').trim()
+                    def projectType = env.PROJECT_TYPE?.trim()
                     def resolvedVersion = readFile('target/.resolved-version').trim()
                     env.APP_VERSION = resolvedVersion
 
