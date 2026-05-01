@@ -55,22 +55,22 @@ pipeline {
     }
 
     environment {
-        APP_NAME = 'anipoll'
+        APP_NAME = ''
         APP_VERSION = ''
-        CORE_DIR = 'core'
+        BUILD_DIR = '.'
         HARBOR_REGISTRY = '192.168.178.41:30002'
         RUNDECK_HOST = '192.168.178.41'
         RUNDECK_PORT = '4440'
         HARBOR_PROJECT = 'library'
-        IMAGE_NAME = 'anipoll'
+        IMAGE_NAME = ''
         IMAGE_TAG = ''
         PROJECT_TYPE = ''
         GRAALVM24_HOME = tool(name: 'graalvm24', type: 'hudson.model.JDK')
         HARBOR_PREFIX = "${HARBOR_REGISTRY}/${HARBOR_PROJECT}"
         FULL_IMAGE = ''
         LATEST_IMAGE = ''
-        DEPLOYMENT_NAME = "${IMAGE_NAME}"
-        CONTAINER_NAME = "${IMAGE_NAME}"
+        DEPLOYMENT_NAME = ''
+        CONTAINER_NAME = ''
         RUNDECK_JOB_ID = "1b180a49-b61b-4733-877e-03f3ea9f6939"
         NAMESPACE = 'default'
     }
@@ -119,19 +119,72 @@ pipeline {
             }
         }
 
-        stage('Detect Project Type') {
+        stage('Resolve Project Layout') {
             steps {
                 script {
-                    def pom = readFile("${env.CORE_DIR}/pom.xml")
-                    def projectType = 'java'
-                    if (pom.contains('quarkus-maven-plugin') || pom.contains('<artifactId>quarkus-bom</artifactId>')) {
-                        projectType = 'quarkus'
-                    } else if (pom.contains('spring-boot-maven-plugin') || pom.contains('org.springframework.boot')) {
-                        projectType = 'spring-boot'
+                    def rootPom = readFile('pom.xml')
+                    def appName = sh(script: 'basename "$WORKSPACE"', returnStdout: true).trim()
+                    def buildDir = '.'
+                    def candidateModules = []
+
+                    if (rootPom.contains('<modules>')) {
+                        def matcher = rootPom =~ /<module>([^<]+)<\/module>/
+                        matcher.each { candidateModules << it[1].trim() }
                     }
 
+                    def moduleProjectType = { String pomText ->
+                        if (pomText.contains('quarkus-maven-plugin') || pomText.contains('<artifactId>quarkus-bom</artifactId>')) {
+                            return 'quarkus'
+                        }
+                        if (pomText.contains('spring-boot-maven-plugin') || pomText.contains('org.springframework.boot')) {
+                            return 'spring-boot'
+                        }
+                        return 'java'
+                    }
+
+                    def rootProjectType = moduleProjectType(rootPom)
+                    def projectType = rootProjectType
+
+                    if (rootProjectType == 'java' && candidateModules) {
+                        if (fileExists('core/pom.xml')) {
+                            buildDir = 'core'
+                        } else {
+                            def matchedModule = candidateModules.find { module ->
+                                if (!fileExists("${module}/pom.xml")) {
+                                    return false
+                                }
+                                def modulePom = readFile("${module}/pom.xml")
+                                def moduleType = moduleProjectType(modulePom)
+                                if (moduleType != 'java') {
+                                    projectType = moduleType
+                                    return true
+                                }
+                                return false
+                            }
+                            if (matchedModule) {
+                                buildDir = matchedModule
+                            } else {
+                                buildDir = candidateModules[0]
+                            }
+                        }
+
+                        if (fileExists("${buildDir}/pom.xml")) {
+                            projectType = moduleProjectType(readFile("${buildDir}/pom.xml"))
+                        }
+                    }
+
+                    env.APP_NAME = appName
+                    env.IMAGE_NAME = appName
+                    env.DEPLOYMENT_NAME = appName
+                    env.CONTAINER_NAME = appName
+                    env.BUILD_DIR = buildDir
                     env.PROJECT_TYPE = projectType
+
+                    writeFile file: 'target/.project-layout', text: "APP_NAME=${appName}\nBUILD_DIR=${buildDir}\nPROJECT_TYPE=${projectType}\n"
                     writeFile file: 'target/.project-type', text: "${projectType}\n"
+
+                    echo "APP_NAME=${appName}"
+                    echo "BUILD_DIR=${buildDir}"
                     echo "PROJECT_TYPE=${projectType}"
                 }
             }
@@ -139,7 +192,7 @@ pipeline {
 
         stage('Build Core') {
             steps {
-                dir("${env.CORE_DIR}") {
+                dir("${env.BUILD_DIR}") {
                     sh 'mvn -B -ntp clean package -DskipTests'
                 }
             }
@@ -153,7 +206,7 @@ pipeline {
                 script {
                     def projectType = readFile('target/.project-type').trim()
                     if (projectType == 'quarkus') {
-                        dir("${env.CORE_DIR}") {
+                        dir("${env.BUILD_DIR}") {
                             withEnv(["JAVA_HOME=${env.GRAALVM24_HOME}", "PATH+GRAAL=${env.GRAALVM24_HOME}/bin"]) {
                                 sh 'mvn -B -ntp package -DskipTests -Dnative'
                             }
@@ -170,13 +223,13 @@ pipeline {
                 expression { return !params.SKIP_TESTS }
             }
             steps {
-                dir("${env.CORE_DIR}") {
+                dir("${env.BUILD_DIR}") {
                     sh 'mvn -B -ntp test'
                 }
             }
             post {
                 always {
-                    junit allowEmptyResults: true, testResults: 'core/target/surefire-reports/*.xml'
+                    junit allowEmptyResults: true, testResults: "${env.BUILD_DIR}/target/surefire-reports/*.xml"
                 }
             }
         }
@@ -198,10 +251,10 @@ pipeline {
                             rm -rf target/package
                             mkdir -p target/package/apps-repo
 
-                            NATIVE_PATH=\$(find core/target -maxdepth 1 -type f -perm -111 ! -name '*.jar' | head -n 1)
+                            NATIVE_PATH=\$(find ${env.BUILD_DIR}/target -maxdepth 1 -type f -perm -111 ! -name '*.jar' | head -n 1)
 
                             if [ -z "\$NATIVE_PATH" ]; then
-                              echo "No Quarkus native binary found in core/target"
+                              echo "No Quarkus native binary found in ${env.BUILD_DIR}/target"
                               exit 1
                             fi
 
@@ -216,10 +269,10 @@ pipeline {
                             rm -rf target/package
                             mkdir -p target/package/apps-repo
 
-                            JAR_PATH=\$(find core/target -maxdepth 1 -type f -name '*.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar' ! -name '*-runner.jar' | head -n 1)
+                            JAR_PATH=\$(find ${env.BUILD_DIR}/target -maxdepth 1 -type f -name '*.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar' ! -name '*-runner.jar' | head -n 1)
 
                             if [ -z "\$JAR_PATH" ]; then
-                              echo "No Quarkus jar found in core/target"
+                              echo "No Quarkus jar found in ${env.BUILD_DIR}/target"
                               exit 1
                             fi
 
@@ -234,10 +287,10 @@ pipeline {
                             rm -rf target/package
                             mkdir -p target/package/apps-repo
 
-                            JAR_PATH=\$(find core/target -maxdepth 1 -type f -name '*.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar' | head -n 1)
+                            JAR_PATH=\$(find ${env.BUILD_DIR}/target -maxdepth 1 -type f -name '*.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar' | head -n 1)
 
                             if [ -z "\$JAR_PATH" ]; then
-                              echo "No Spring Boot jar found in core/target"
+                              echo "No Spring Boot jar found in ${env.BUILD_DIR}/target"
                               exit 1
                             fi
 
@@ -252,10 +305,10 @@ pipeline {
                             rm -rf target/package
                             mkdir -p target/package/apps-repo
 
-                            JAR_PATH=\$(find core/target -maxdepth 1 -type f -name '*.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar' ! -name '*-runner.jar' | head -n 1)
+                            JAR_PATH=\$(find ${env.BUILD_DIR}/target -maxdepth 1 -type f -name '*.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar' ! -name '*-runner.jar' | head -n 1)
 
                             if [ -z "\$JAR_PATH" ]; then
-                              echo "No build jar found in core/target"
+                              echo "No build jar found in ${env.BUILD_DIR}/target"
                               exit 1
                             fi
 
@@ -274,7 +327,7 @@ pipeline {
                 branch 'master'
             }
             steps {
-                dir("${env.CORE_DIR}") {
+                dir("${env.BUILD_DIR}") {
                     sh 'mvn -B -ntp -Puse-jfrog deploy -DskipTests'
                 }
             }
@@ -452,7 +505,7 @@ IMAGE_PATH=${env.HARBOR_REGISTRY}/${env.HARBOR_PROJECT}/${env.IMAGE_NAME}
                           RESOLVED_VERSION=$(cat target/.resolved-version)
                           git config user.name "jenkins"
                           git config user.email "jenkins@local"
-                          git add pom.xml core/pom.xml service-template/pom.xml quarkus-service-template/pom.xml chassis/pom.xml 2>/dev/null || true
+                          git add pom.xml */pom.xml */*/pom.xml 2>/dev/null || true
                           if ! git diff --cached --quiet; then
                             git commit -m "Bump Maven version to ${RESOLVED_VERSION} [skip ci]"
                             REMOTE_URL=$(git remote get-url origin)
