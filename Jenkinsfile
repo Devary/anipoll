@@ -136,10 +136,10 @@ pipeline {
                     }
 
                     def moduleProjectType = { String pomText ->
-                        if (pomText.contains('quarkus-maven-plugin') || pomText.contains('<artifactId>quarkus-bom</artifactId>')) {
+                        if ((pomText =~ /quarkus-maven-plugin|quarkus-bom|io\.quarkus/).find()) {
                             return 'quarkus'
                         }
-                        if (pomText.contains('spring-boot-maven-plugin') || pomText.contains('org.springframework.boot')) {
+                        if ((pomText =~ /spring-boot-maven-plugin|org\.springframework\.boot/).find()) {
                             return 'spring-boot'
                         }
                         return 'java'
@@ -246,9 +246,9 @@ pipeline {
                     }
                     if (!projectType && fileExists("${buildDir}/pom.xml")) {
                         def modulePom = readFile("${buildDir}/pom.xml")
-                        if (modulePom.contains('quarkus-maven-plugin') || modulePom.contains('<artifactId>quarkus-bom</artifactId>')) {
+                        if ((modulePom =~ /quarkus-maven-plugin|quarkus-bom|io\.quarkus/).find()) {
                             projectType = 'quarkus'
-                        } else if (modulePom.contains('spring-boot-maven-plugin') || modulePom.contains('org.springframework.boot')) {
+                        } else if ((modulePom =~ /spring-boot-maven-plugin|org\.springframework\.boot/).find()) {
                             projectType = 'spring-boot'
                         } else {
                             projectType = 'java'
@@ -313,9 +313,9 @@ pipeline {
                     }
                     if (!projectType && fileExists("${buildDir}/pom.xml")) {
                         def modulePom = readFile("${buildDir}/pom.xml")
-                        if (modulePom.contains('quarkus-maven-plugin') || modulePom.contains('<artifactId>quarkus-bom</artifactId>')) {
+                        if ((modulePom =~ /quarkus-maven-plugin|quarkus-bom|io\.quarkus/).find()) {
                             projectType = 'quarkus'
-                        } else if (modulePom.contains('spring-boot-maven-plugin') || modulePom.contains('org.springframework.boot')) {
+                        } else if ((modulePom =~ /spring-boot-maven-plugin|org\.springframework\.boot/).find()) {
                             projectType = 'spring-boot'
                         } else {
                             projectType = 'java'
