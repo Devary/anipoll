@@ -266,9 +266,9 @@ pipeline {
                               exit 1
                             fi
 
-                            cp "\$NATIVE_PATH" "target/package/apps-repo/${APP_NAME}"
+                            cp "\$NATIVE_PATH" "target/package/apps-repo/${env.APP_NAME}"
                             cd target/package
-                            zip -r "../${APP_NAME}-\${APP_VERSION}.zip" .
+                            zip -r "../${env.APP_NAME}-\${env.APP_VERSION}.zip" .
                         """
                     } else if (projectType == 'quarkus') {
                         sh """
@@ -284,9 +284,9 @@ pipeline {
                               exit 1
                             fi
 
-                            cp "\$JAR_PATH" "target/package/apps-repo/${APP_NAME}.jar"
+                            cp "\$JAR_PATH" "target/package/apps-repo/${env.APP_NAME}.jar"
                             cd target/package
-                            zip -r "../${APP_NAME}-\${APP_VERSION}.zip" .
+                            zip -r "../${env.APP_NAME}-\${env.APP_VERSION}.zip" .
                         """
                     } else if (projectType == 'spring-boot') {
                         sh """
@@ -302,9 +302,9 @@ pipeline {
                               exit 1
                             fi
 
-                            cp "\$JAR_PATH" "target/package/apps-repo/${APP_NAME}.jar"
+                            cp "\$JAR_PATH" "target/package/apps-repo/${env.APP_NAME}.jar"
                             cd target/package
-                            zip -r "../${APP_NAME}-\${APP_VERSION}.zip" .
+                            zip -r "../${env.APP_NAME}-\${env.APP_VERSION}.zip" .
                         """
                     } else {
                         sh """
@@ -320,9 +320,9 @@ pipeline {
                               exit 1
                             fi
 
-                            cp "\$JAR_PATH" "target/package/apps-repo/${APP_NAME}.jar"
+                            cp "\$JAR_PATH" "target/package/apps-repo/${env.APP_NAME}.jar"
                             cd target/package
-                            zip -r "../${APP_NAME}-\${APP_VERSION}.zip" .
+                            zip -r "../${env.APP_NAME}-\${env.APP_VERSION}.zip" .
                         """
                     }
                 }
@@ -494,8 +494,8 @@ IMAGE_PATH=${env.HARBOR_REGISTRY}/${env.HARBOR_PROJECT}/${env.IMAGE_NAME}
                             \\"image\\": \\"${IMAGE_PATH}\\",
                             \\"tag\\": \\"${IMAGE_TAG}\\",
                             \\"namespace\\": \\"${NAMESPACE}\\",
-                            \\"deployment\\": \\"${DEPLOYMENT_NAME}\\",
-                            \\"container\\": \\"${CONTAINER_NAME}\\"
+                            \\"deployment\\": \\"${env.DEPLOYMENT_NAME}\\",
+                            \\"container\\": \\"${env.CONTAINER_NAME}\\"
                           }
                         }"
                     '''
@@ -511,7 +511,7 @@ IMAGE_PATH=${env.HARBOR_REGISTRY}/${env.HARBOR_PROJECT}/${env.IMAGE_NAME}
                     sshagent(credentials: ['github-ssh']) {
                         sh '''
                           set -euxo pipefail
-                          RESOLVED_VERSION="${APP_VERSION}"
+                          RESOLVED_VERSION="${env.APP_VERSION}"
                           git config user.name "jenkins"
                           git config user.email "jenkins@local"
                           git add pom.xml */pom.xml */*/pom.xml 2>/dev/null || true
