@@ -1,9 +1,34 @@
+def bumpPatchVersion(String version) {
+    def snapshot = version.endsWith('-SNAPSHOT')
+    def base = snapshot ? version.replace('-SNAPSHOT', '') : version
+    def parts = base.tokenize('.')
+
+    if (parts.size() < 2) {
+        error("Version must look like x.y or x.y.z[-SNAPSHOT]. Got: ${version}")
+    }
+
+    def numericParts = parts.collect { part ->
+        if (!(part ==~ /\d+/)) {
+            error("Version segment is not numeric in version: ${version}")
+        }
+        part as int
+    }
+
+    numericParts[-1] = numericParts[-1] + 1
+    def bumped = numericParts.join('.')
+    return snapshot ? "${bumped}-SNAPSHOT" : bumped
+}
+
 pipeline {
     agent any
 
     tools {
         jdk 'graalvm17'
         maven 'Maven'
+    }
+
+    parameters {
+        string(name: 'MANUAL_VERSION', defaultValue: '', description: 'Optional: override the Maven version for this build')
     }
 
     options {
@@ -13,7 +38,7 @@ pipeline {
 
     environment {
         APP_NAME = 'anipoll'
-        APP_VERSION = '1.0-SNAPSHOT'
+        APP_VERSION = ''
         CORE_DIR = 'core'
         HARBOR_REGISTRY = '192.168.178.41:30002'
         RUNDECK_HOST = '192.168.178.41'
@@ -37,6 +62,34 @@ pipeline {
             steps {
                 checkout scm
                 sh 'git status --short || true'
+            }
+        }
+
+        stage('Resolve Version') {
+            steps {
+                script {
+                    def manualVersion = params.MANUAL_VERSION?.trim()
+                    def currentVersion = sh(
+                        script: "mvn -B -ntp -q help:evaluate -Dexpression=project.version -DforceStdout",
+                        returnStdout: true
+                    ).trim()
+
+                    if (!currentVersion || currentVersion == 'null') {
+                        error('Could not resolve current Maven project version from pom.xml')
+                    }
+
+                    def targetVersion = manualVersion ? manualVersion : bumpPatchVersion(currentVersion)
+                    env.APP_VERSION = targetVersion
+                    env.IMAGE_TAG = targetVersion
+
+                    sh """
+                        mvn -B -ntp versions:set -DnewVersion=${targetVersion} -DprocessAllModules=true -DgenerateBackupPoms=false
+                    """
+
+                    sh 'git status --short'
+                    writeFile file: 'target/.resolved-version', text: "${targetVersion}\n"
+                    echo "Resolved Maven version: ${targetVersion}"
+                }
             }
         }
 
@@ -199,15 +252,10 @@ stage('Prepare Dockerfile') {
        stage('Set Image Names') {
          steps {
            script {
-             def pom = readFile("${env.CORE_DIR}/pom.xml")
-             def versionStart = pom.indexOf('<version>')
-             def versionEnd = pom.indexOf('</version>', versionStart)
-
-             if (versionStart == -1 || versionEnd == -1) {
-               error('Could not resolve Maven project version from core/pom.xml')
-             }
-
-             def resolvedVersion = pom.substring(versionStart + 9, versionEnd).trim()
+             def resolvedVersion = sh(
+               script: "mvn -B -ntp -q help:evaluate -Dexpression=project.version -DforceStdout",
+               returnStdout: true
+             ).trim()
 
              if (!resolvedVersion || resolvedVersion == 'null') {
                error("Could not resolve Maven project version. Got: '${resolvedVersion}'")
@@ -317,6 +365,28 @@ IMAGE_PATH=${env.HARBOR_REGISTRY}/${env.HARBOR_PROJECT}/${env.IMAGE_NAME}
 
     post {
         success {
+            script {
+                if (env.BRANCH_NAME == 'master') {
+                    withCredentials([usernamePassword(credentialsId: 'github-creds', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_PASS')]) {
+                        sh '''
+                          set -euo pipefail
+                          git config user.name "jenkins"
+                          git config user.email "jenkins@local"
+                          git add pom.xml core/pom.xml service-template/pom.xml quarkus-service-template/pom.xml chassis/pom.xml 2>/dev/null || true
+                          if ! git diff --cached --quiet; then
+                            git commit -m "Bump Maven version to ${APP_VERSION} [skip ci]"
+                            REMOTE_URL=$(git remote get-url origin)
+                            AUTHED_URL=$(printf '%s' "$REMOTE_URL" | sed "s#https://#https://${GIT_USER}:${GIT_PASS}@#")
+                            git push "$AUTHED_URL" HEAD:${BRANCH_NAME}
+                          else
+                            echo "No pom version changes to commit."
+                          fi
+                        '''
+                    }
+                } else {
+                    echo "Skipping pom commit/push on branch ${env.BRANCH_NAME}"
+                }
+            }
             echo 'Pipeline completed successfully.'
             sh '''
               if [ -f target/.image-vars ]; then
