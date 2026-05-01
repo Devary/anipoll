@@ -86,6 +86,7 @@ pipeline {
         stage('Resolve Version') {
             steps {
                 script {
+                    sh 'mkdir -p target'
                     def manualVersion = params.MANUAL_VERSION?.trim()
                     def currentVersion = sh(
                         script: "mvn -B -ntp -q help:evaluate -Dexpression=project.version -DforceStdout",
@@ -122,6 +123,7 @@ pipeline {
         stage('Resolve Project Layout') {
             steps {
                 script {
+                    sh 'mkdir -p target'
                     def rootPom = readFile('pom.xml')
                     def appName = sh(script: 'basename "$WORKSPACE"', returnStdout: true).trim()
                     def buildDir = '.'
@@ -371,6 +373,7 @@ CMD ["sh", "-c", "echo hello from jenkins harbor test && sleep 3600"]
             }
             steps {
                 script {
+                    sh 'mkdir -p target'
                     def resolvedVersion = sh(
                         script: "mvn -B -ntp -q help:evaluate -Dexpression=project.version -DforceStdout",
                         returnStdout: true
