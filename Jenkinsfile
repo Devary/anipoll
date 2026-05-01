@@ -396,11 +396,23 @@ pipeline {
 
         stage('Deploy to JFrog') {
             when {
-                branch 'master'
+                allOf {
+                    branch 'master'
+                    expression { return !params.PACKAGE_ONLY }
+                }
             }
             steps {
-                dir("${env.BUILD_DIR}") {
-                    sh 'mvn -B -ntp -Puse-jfrog deploy -DskipTests'
+                script {
+                    def deployConfigured = sh(
+                        script: "grep -q '<distributionManagement>\|<id>use-jfrog</id>' pom.xml && echo yes || echo no",
+                        returnStdout: true
+                    ).trim()
+
+                    if (deployConfigured == 'yes') {
+                        sh 'mvn -B -ntp -Puse-jfrog deploy -DskipTests'
+                    } else {
+                        echo 'Skipping JFrog deploy: no distributionManagement or use-jfrog profile found in root pom.xml'
+                    }
                 }
             }
         }
