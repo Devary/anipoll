@@ -468,14 +468,27 @@ CMD ["sh", "-c", "echo hello from jenkins harbor test && sleep 3600"]
                         error("Could not resolve Maven project version. Got: '${resolvedVersion}'")
                     }
 
+                    def appName = env.APP_NAME?.trim()
+                    if (!appName) {
+                        def remoteUrl = sh(script: 'git remote get-url origin', returnStdout: true).trim()
+                        appName = remoteUrl.tokenize('/').last().replace('.git', '').replaceAll(/^.*:/, '')
+                        env.APP_NAME = appName
+                    }
+                    env.IMAGE_NAME = appName
+                    env.DEPLOYMENT_NAME = appName
+                    env.CONTAINER_NAME = appName
                     env.APP_VERSION = resolvedVersion
                     env.IMAGE_TAG = resolvedVersion
 
-                    writeFile file: 'target/.image-vars', text: """IMAGE_TAG=${resolvedVersion}
-LOCAL_IMAGE=${env.IMAGE_NAME}:${resolvedVersion}
-FULL_IMAGE=${env.HARBOR_REGISTRY}/${env.HARBOR_PROJECT}/${env.IMAGE_NAME}:${resolvedVersion}
-LATEST_IMAGE=${env.HARBOR_REGISTRY}/${env.HARBOR_PROJECT}/${env.IMAGE_NAME}:latest
-IMAGE_PATH=${env.HARBOR_REGISTRY}/${env.HARBOR_PROJECT}/${env.IMAGE_NAME}
+                    writeFile file: 'target/.image-vars', text: """APP_NAME=${appName}
+DEPLOYMENT_NAME=${appName}
+CONTAINER_NAME=${appName}
+IMAGE_NAME=${appName}
+IMAGE_TAG=${resolvedVersion}
+LOCAL_IMAGE=${appName}:${resolvedVersion}
+FULL_IMAGE=${env.HARBOR_REGISTRY}/${env.HARBOR_PROJECT}/${appName}:${resolvedVersion}
+LATEST_IMAGE=${env.HARBOR_REGISTRY}/${env.HARBOR_PROJECT}/${appName}:latest
+IMAGE_PATH=${env.HARBOR_REGISTRY}/${env.HARBOR_PROJECT}/${appName}
 """
 
                     sh 'cat target/.image-vars'
