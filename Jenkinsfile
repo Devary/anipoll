@@ -436,7 +436,7 @@ IMAGE_PATH=${env.HARBOR_REGISTRY}/${env.HARBOR_PROJECT}/${env.IMAGE_NAME}
                 }
             }
         }
-
+    }
 
     post {
         success {
