@@ -244,6 +244,17 @@ pipeline {
                             env.BUILD_DIR = buildDir
                         }
                     }
+                    if (!projectType && fileExists("${buildDir}/pom.xml")) {
+                        def modulePom = readFile("${buildDir}/pom.xml")
+                        if (modulePom.contains('quarkus-maven-plugin') || modulePom.contains('<artifactId>quarkus-bom</artifactId>')) {
+                            projectType = 'quarkus'
+                        } else if (modulePom.contains('spring-boot-maven-plugin') || modulePom.contains('org.springframework.boot')) {
+                            projectType = 'spring-boot'
+                        } else {
+                            projectType = 'java'
+                        }
+                        env.PROJECT_TYPE = projectType
+                    }
                     if (projectType == 'quarkus') {
                         dir(buildDir) {
                             withEnv(["JAVA_HOME=${env.GRAALVM24_HOME}", "PATH+GRAAL=${env.GRAALVM24_HOME}/bin"]) {
@@ -299,6 +310,17 @@ pipeline {
                                 env.BUILD_DIR = buildDir
                             }
                         }
+                    }
+                    if (!projectType && fileExists("${buildDir}/pom.xml")) {
+                        def modulePom = readFile("${buildDir}/pom.xml")
+                        if (modulePom.contains('quarkus-maven-plugin') || modulePom.contains('<artifactId>quarkus-bom</artifactId>')) {
+                            projectType = 'quarkus'
+                        } else if (modulePom.contains('spring-boot-maven-plugin') || modulePom.contains('org.springframework.boot')) {
+                            projectType = 'spring-boot'
+                        } else {
+                            projectType = 'java'
+                        }
+                        env.PROJECT_TYPE = projectType
                     }
 
                     if (!resolvedVersion) {
