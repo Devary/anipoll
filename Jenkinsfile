@@ -418,7 +418,7 @@ IMAGE_PATH=${env.HARBOR_REGISTRY}/${env.HARBOR_PROJECT}/${env.IMAGE_NAME}
         success {
             script {
                 if (env.BRANCH_NAME == 'master') {
-                    withCredentials([usernamePassword(credentialsId: 'github-creds', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_PASS')]) {
+                    sshagent(credentials: ['github-ssh']) {
                         sh '''
                           set -euo pipefail
                           git config user.name "jenkins"
@@ -427,8 +427,11 @@ IMAGE_PATH=${env.HARBOR_REGISTRY}/${env.HARBOR_PROJECT}/${env.IMAGE_NAME}
                           if ! git diff --cached --quiet; then
                             git commit -m "Bump Maven version to ${APP_VERSION} [skip ci]"
                             REMOTE_URL=$(git remote get-url origin)
-                            AUTHED_URL=$(printf '%s' "$REMOTE_URL" | sed "s#https://#https://${GIT_USER}:${GIT_PASS}@#")
-                            git push "$AUTHED_URL" HEAD:${BRANCH_NAME}
+                            if echo "$REMOTE_URL" | grep -q '^https://github.com/'; then
+                              SSH_URL=$(printf '%s' "$REMOTE_URL" | sed -E 's#https://github.com/#git@github.com:#')
+                              git remote set-url origin "$SSH_URL"
+                            fi
+                            git push origin HEAD:${BRANCH_NAME}
                           else
                             echo "No pom version changes to commit."
                           fi
