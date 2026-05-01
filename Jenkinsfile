@@ -1,10 +1,10 @@
-def bumpPatchVersion(String version) {
+def normalizeVersion(String version) {
     def snapshot = version.endsWith('-SNAPSHOT')
     def base = snapshot ? version.replace('-SNAPSHOT', '') : version
     def parts = base.tokenize('.')
 
-    if (parts.size() < 2) {
-        error("Version must look like x.y or x.y.z[-SNAPSHOT]. Got: ${version}")
+    if (parts.isEmpty() || parts.size() > 3) {
+        error("Version must look like x, x.y, or x.y.z[-SNAPSHOT]. Got: ${version}")
     }
 
     def numericParts = parts.collect { part ->
@@ -14,7 +14,22 @@ def bumpPatchVersion(String version) {
         part as int
     }
 
-    numericParts[-1] = numericParts[-1] + 1
+    while (numericParts.size() < 3) {
+        numericParts << 0
+    }
+
+    def normalized = numericParts.join('.')
+    return snapshot ? "${normalized}-SNAPSHOT" : normalized
+}
+
+def bumpPatchVersion(String version) {
+    def normalized = normalizeVersion(version)
+    def snapshot = normalized.endsWith('-SNAPSHOT')
+    def base = snapshot ? normalized.replace('-SNAPSHOT', '') : normalized
+    def numericParts = base.tokenize('.').collect { it as int }
+
+    numericParts[2] = numericParts[2] + 1
+
     def bumped = numericParts.join('.')
     return snapshot ? "${bumped}-SNAPSHOT" : bumped
 }
@@ -29,6 +44,7 @@ pipeline {
 
     parameters {
         string(name: 'MANUAL_VERSION', defaultValue: '', description: 'Optional: override the Maven version for this build')
+        booleanParam(name: 'GENERATE_NATIVE_IMAGE', defaultValue: false, description: 'Build the Quarkus native image for this run')
     }
 
     options {
@@ -78,15 +94,23 @@ pipeline {
                         error('Could not resolve current Maven project version from pom.xml')
                     }
 
-                    def targetVersion = manualVersion ? manualVersion : bumpPatchVersion(currentVersion)
+                    def effectiveCurrentVersion = normalizeVersion(currentVersion)
+                    def targetVersion = effectiveCurrentVersion
+
+                    if (env.BRANCH_NAME == 'master') {
+                        targetVersion = manualVersion ? normalizeVersion(manualVersion) : bumpPatchVersion(currentVersion)
+
+                        sh """
+                            mvn -B -ntp versions:set -DnewVersion=${targetVersion} -DprocessAllModules=true -DgenerateBackupPoms=false
+                        """
+
+                        sh 'git status --short'
+                    } else {
+                        echo "Skipping version mutation on branch ${env.BRANCH_NAME}; using ${effectiveCurrentVersion}"
+                    }
+
                     env.APP_VERSION = targetVersion
                     env.IMAGE_TAG = targetVersion
-
-                    sh """
-                        mvn -B -ntp versions:set -DnewVersion=${targetVersion} -DprocessAllModules=true -DgenerateBackupPoms=false
-                    """
-
-                    sh 'git status --short'
                     writeFile file: 'target/.resolved-version', text: "${targetVersion}\n"
                     echo "Resolved Maven version: ${targetVersion}"
                 }
@@ -120,6 +144,9 @@ pipeline {
         }
 
         stage('Build Native Image') {
+            when {
+                expression { return params.GENERATE_NATIVE_IMAGE }
+            }
             steps {
                 script {
                     def projectType = readFile('target/.project-type').trim()
@@ -156,57 +183,81 @@ pipeline {
             steps {
                 script {
                     def projectType = readFile('target/.project-type').trim()
-                    if (projectType == 'quarkus') {
-                        sh '''
+                    def resolvedVersion = readFile('target/.resolved-version').trim()
+                    env.APP_VERSION = resolvedVersion
+
+                    if (projectType == 'quarkus' && params.GENERATE_NATIVE_IMAGE) {
+                        sh """
                             set -euo pipefail
+                            APP_VERSION='${resolvedVersion}'
                             rm -rf target/package
                             mkdir -p target/package/apps-repo
 
-                            NATIVE_PATH=$(find core/target -maxdepth 1 -type f -perm -111 ! -name '*.jar' | head -n 1)
+                            NATIVE_PATH=\$(find core/target -maxdepth 1 -type f -perm -111 ! -name '*.jar' | head -n 1)
 
-                            if [ -z "$NATIVE_PATH" ]; then
+                            if [ -z "\$NATIVE_PATH" ]; then
                               echo "No Quarkus native binary found in core/target"
                               exit 1
                             fi
 
-                            cp "$NATIVE_PATH" "target/package/apps-repo/${APP_NAME}"
+                            cp "\$NATIVE_PATH" "target/package/apps-repo/${APP_NAME}"
                             cd target/package
-                            zip -r "../${APP_NAME}-${APP_VERSION}.zip" .
-                        '''
-                    } else if (projectType == 'spring-boot') {
-                        sh '''
+                            zip -r "../${APP_NAME}-\${APP_VERSION}.zip" .
+                        """
+                    } else if (projectType == 'quarkus') {
+                        sh """
                             set -euo pipefail
+                            APP_VERSION='${resolvedVersion}'
                             rm -rf target/package
                             mkdir -p target/package/apps-repo
 
-                            JAR_PATH=$(find core/target -maxdepth 1 -type f -name '*.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar' | head -n 1)
+                            JAR_PATH=\$(find core/target -maxdepth 1 -type f -name '*.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar' ! -name '*-runner.jar' | head -n 1)
 
-                            if [ -z "$JAR_PATH" ]; then
+                            if [ -z "\$JAR_PATH" ]; then
+                              echo "No Quarkus jar found in core/target"
+                              exit 1
+                            fi
+
+                            cp "\$JAR_PATH" "target/package/apps-repo/${APP_NAME}.jar"
+                            cd target/package
+                            zip -r "../${APP_NAME}-\${APP_VERSION}.zip" .
+                        """
+                    } else if (projectType == 'spring-boot') {
+                        sh """
+                            set -euo pipefail
+                            APP_VERSION='${resolvedVersion}'
+                            rm -rf target/package
+                            mkdir -p target/package/apps-repo
+
+                            JAR_PATH=\$(find core/target -maxdepth 1 -type f -name '*.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar' | head -n 1)
+
+                            if [ -z "\$JAR_PATH" ]; then
                               echo "No Spring Boot jar found in core/target"
                               exit 1
                             fi
 
-                            cp "$JAR_PATH" "target/package/apps-repo/${APP_NAME}.jar"
+                            cp "\$JAR_PATH" "target/package/apps-repo/${APP_NAME}.jar"
                             cd target/package
-                            zip -r "../${APP_NAME}-${APP_VERSION}.zip" .
-                        '''
+                            zip -r "../${APP_NAME}-\${APP_VERSION}.zip" .
+                        """
                     } else {
-                        sh '''
+                        sh """
                             set -euo pipefail
+                            APP_VERSION='${resolvedVersion}'
                             rm -rf target/package
                             mkdir -p target/package/apps-repo
 
-                            JAR_PATH=$(find core/target -maxdepth 1 -type f -name '*.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar' ! -name '*-runner.jar' | head -n 1)
+                            JAR_PATH=\$(find core/target -maxdepth 1 -type f -name '*.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar' ! -name '*-runner.jar' | head -n 1)
 
-                            if [ -z "$JAR_PATH" ]; then
+                            if [ -z "\$JAR_PATH" ]; then
                               echo "No build jar found in core/target"
                               exit 1
                             fi
 
-                            cp "$JAR_PATH" "target/package/apps-repo/${APP_NAME}.jar"
+                            cp "\$JAR_PATH" "target/package/apps-repo/${APP_NAME}.jar"
                             cd target/package
-                            zip -r "../${APP_NAME}-${APP_VERSION}.zip" .
-                        '''
+                            zip -r "../${APP_NAME}-\${APP_VERSION}.zip" .
+                        """
                     }
                 }
                 archiveArtifacts artifacts: 'target/*.zip', fingerprint: true, onlyIfSuccessful: true
