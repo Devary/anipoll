@@ -45,6 +45,7 @@ pipeline {
     parameters {
         string(name: 'MANUAL_VERSION', defaultValue: '', description: 'Optional: override the Maven version for this build')
         booleanParam(name: 'GENERATE_NATIVE_IMAGE', defaultValue: false, description: 'Build the Quarkus native image for this run')
+        booleanParam(name: 'PACKAGE_ONLY', defaultValue: false, description: 'Package/publish to Maven only and skip image build + deployment flow')
     }
 
     options {
@@ -275,143 +276,166 @@ pipeline {
             }
         }
 
-stage('Prepare Dockerfile') {
-         steps {
-           writeFile file: 'Dockerfile', text: '''
-   FROM alpine:3.20
-   CMD ["sh", "-c", "echo hello from jenkins harbor test && sleep 3600"]
-   '''
-         }
-       }
+        stage('Prepare Dockerfile') {
+            when {
+                expression { return !params.PACKAGE_ONLY }
+            }
+            steps {
+                writeFile file: 'Dockerfile', text: '''
+FROM alpine:3.20
+CMD ["sh", "-c", "echo hello from jenkins harbor test && sleep 3600"]
+'''
+            }
+        }
 
-       stage('Debug Variables') {
-         steps {
-           sh '''
-             echo "LOCAL_IMAGE=$LOCAL_IMAGE"
-             echo "FULL_IMAGE=$FULL_IMAGE"
-             echo "HARBOR_REGISTRY=$HARBOR_REGISTRY"
-             echo "BUILD_NUMBER=$BUILD_NUMBER"
-             echo "IMAGE_NAME=$IMAGE_NAME"
-             echo "IMAGE_TAG=$IMAGE_TAG"
-             echo "LOCAL_IMAGE=$LOCAL_IMAGE"
-             echo "FULL_IMAGE=$FULL_IMAGE"
-             echo "DEPLOYMENT_NAME=$IMAGE_NAME"
-             echo "CONTAINER_NAME=$IMAGE_NAME"
-           '''
-         }
-       }
-       stage('Set Image Names') {
-         steps {
-           script {
-             def resolvedVersion = sh(
-               script: "mvn -B -ntp -q help:evaluate -Dexpression=project.version -DforceStdout",
-               returnStdout: true
-             ).trim()
+        stage('Debug Variables') {
+            when {
+                expression { return !params.PACKAGE_ONLY }
+            }
+            steps {
+                sh '''
+                  echo "LOCAL_IMAGE=$LOCAL_IMAGE"
+                  echo "FULL_IMAGE=$FULL_IMAGE"
+                  echo "HARBOR_REGISTRY=$HARBOR_REGISTRY"
+                  echo "BUILD_NUMBER=$BUILD_NUMBER"
+                  echo "IMAGE_NAME=$IMAGE_NAME"
+                  echo "IMAGE_TAG=$IMAGE_TAG"
+                  echo "LOCAL_IMAGE=$LOCAL_IMAGE"
+                  echo "FULL_IMAGE=$FULL_IMAGE"
+                  echo "DEPLOYMENT_NAME=$IMAGE_NAME"
+                  echo "CONTAINER_NAME=$IMAGE_NAME"
+                '''
+            }
+        }
 
-             if (!resolvedVersion || resolvedVersion == 'null') {
-               error("Could not resolve Maven project version. Got: '${resolvedVersion}'")
-             }
+        stage('Set Image Names') {
+            when {
+                expression { return !params.PACKAGE_ONLY }
+            }
+            steps {
+                script {
+                    def resolvedVersion = sh(
+                        script: "mvn -B -ntp -q help:evaluate -Dexpression=project.version -DforceStdout",
+                        returnStdout: true
+                    ).trim()
 
-             env.APP_VERSION = resolvedVersion
-             env.IMAGE_TAG = resolvedVersion
+                    if (!resolvedVersion || resolvedVersion == 'null') {
+                        error("Could not resolve Maven project version. Got: '${resolvedVersion}'")
+                    }
 
-             writeFile file: 'target/.image-vars', text: """IMAGE_TAG=${resolvedVersion}
+                    env.APP_VERSION = resolvedVersion
+                    env.IMAGE_TAG = resolvedVersion
+
+                    writeFile file: 'target/.image-vars', text: """IMAGE_TAG=${resolvedVersion}
 LOCAL_IMAGE=${env.IMAGE_NAME}:${resolvedVersion}
 FULL_IMAGE=${env.HARBOR_REGISTRY}/${env.HARBOR_PROJECT}/${env.IMAGE_NAME}:${resolvedVersion}
 LATEST_IMAGE=${env.HARBOR_REGISTRY}/${env.HARBOR_PROJECT}/${env.IMAGE_NAME}:latest
 IMAGE_PATH=${env.HARBOR_REGISTRY}/${env.HARBOR_PROJECT}/${env.IMAGE_NAME}
 """
 
-             sh 'cat target/.image-vars'
-           }
-         }
-       }
+                    sh 'cat target/.image-vars'
+                }
+            }
+        }
 
+        stage('Build Image') {
+            when {
+                expression { return !params.PACKAGE_ONLY }
+            }
+            steps {
+                sh '''
+                  set -euo pipefail
+                  . target/.image-vars
+                  docker build -t "$LOCAL_IMAGE" .
+                '''
+            }
+        }
 
-       stage('Build Image') {
-         steps {
-           sh '''
-             set -euo pipefail
-             . target/.image-vars
-             docker build -t "$LOCAL_IMAGE" .
-           '''
-         }
-       }
+        stage('Login to Harbor') {
+            when {
+                expression { return !params.PACKAGE_ONLY }
+            }
+            steps {
+                withCredentials([usernamePassword(
+                    credentialsId: 'harbor-creds',
+                    usernameVariable: 'HARBOR_USER',
+                    passwordVariable: 'HARBOR_PASS'
+                )]) {
+                    sh '''
+                      echo "$HARBOR_PASS" | docker login "$HARBOR_REGISTRY" -u "$HARBOR_USER" --password-stdin
+                    '''
+                }
+            }
+        }
 
-       stage('Login to Harbor') {
-         steps {
-           withCredentials([usernamePassword(
-             credentialsId: 'harbor-creds',
-             usernameVariable: 'HARBOR_USER',
-             passwordVariable: 'HARBOR_PASS'
-           )]) {
-             sh '''
-               echo "$HARBOR_PASS" | docker login "$HARBOR_REGISTRY" -u "$HARBOR_USER" --password-stdin
-             '''
-           }
-         }
-       }
+        stage('Tag Image') {
+            when {
+                expression { return !params.PACKAGE_ONLY }
+            }
+            steps {
+                sh '''
+                  set -euo pipefail
+                  . target/.image-vars
+                  docker tag "$LOCAL_IMAGE" "$FULL_IMAGE"
+                '''
+            }
+        }
 
-       stage('Tag Image') {
-         steps {
-           sh '''
-             set -euo pipefail
-             . target/.image-vars
-             docker tag "$LOCAL_IMAGE" "$FULL_IMAGE"
-           '''
-         }
-       }
+        stage('Push Image') {
+            when {
+                expression { return !params.PACKAGE_ONLY }
+            }
+            steps {
+                sh '''
+                  set -euo pipefail
+                  . target/.image-vars
 
-       stage('Push Image') {
-         steps {
-           sh '''
-             set -euo pipefail
-             . target/.image-vars
+                  if docker manifest inspect "$FULL_IMAGE" >/dev/null 2>&1; then
+                    echo "Image already exists in Harbor, skipping version push: $FULL_IMAGE"
+                  else
+                    docker push "$FULL_IMAGE"
+                  fi
 
-             if docker manifest inspect "$FULL_IMAGE" >/dev/null 2>&1; then
-               echo "Image already exists in Harbor, skipping version push: $FULL_IMAGE"
-             else
-               docker push "$FULL_IMAGE"
-             fi
+                  docker tag "$LOCAL_IMAGE" "$LATEST_IMAGE"
+                  docker push "$LATEST_IMAGE"
+                '''
+            }
+        }
 
-             docker tag "$LOCAL_IMAGE" "$LATEST_IMAGE"
-             docker push "$LATEST_IMAGE"
-           '''
-         }
-       }
         stage('Trigger Rundeck Deploy') {
-             steps {
-               withCredentials([string(credentialsId: 'rundeck-api-token', variable: 'RUNDECK_TOKEN')])
-                {
-                 sh '''
-                   set -euo pipefail
+            when {
+                expression { return !params.PACKAGE_ONLY }
+            }
+            steps {
+                withCredentials([string(credentialsId: 'rundeck-api-token', variable: 'RUNDECK_TOKEN')]) {
+                    sh '''
+                      set -euo pipefail
 
-                   . target/.image-vars
+                      . target/.image-vars
 
-                   echo "IMAGE_PATH=$IMAGE_PATH"
-                   echo "IMAGE_TAG=latest"
-                   echo "NAMESPACE="
-                   echo "DEPLOYMENT_NAME=$DEPLOYMENT_NAME"
-                   echo "CONTAINER_NAME=$CONTAINER_NAME"
+                      echo "IMAGE_PATH=$IMAGE_PATH"
+                      echo "IMAGE_TAG=latest"
+                      echo "NAMESPACE="
+                      echo "DEPLOYMENT_NAME=$DEPLOYMENT_NAME"
+                      echo "CONTAINER_NAME=$CONTAINER_NAME"
 
-                   curl -sS -X POST "${RUNDECK_HOST}:${RUNDECK_PORT}/api/46/job/${RUNDECK_JOB_ID}/run" \
-                     -H "X-Rundeck-Auth-Token: $RUNDECK_TOKEN" \
-                     -H "Content-Type: application/json" \
-                     -d "{
-                       \\"options\\": {
-                         \\"workspace\\": \\"${WORKSPACE}\\",
-                         \\"image\\": \\"${IMAGE_PATH}\\",
-                         \\"tag\\": \\"latest\\",
-                         \\"namespace\\": \\"${NAMESPACE}\\",
-                         \\"deployment\\": \\"${DEPLOYMENT_NAME}\\",
-                         \\"container\\": \\"${CONTAINER_NAME}\\"
-                       }
-                     }"
-                 '''
-               }
-             }
-           }
-       }
+                      curl -sS -X POST "${RUNDECK_HOST}:${RUNDECK_PORT}/api/46/job/${RUNDECK_JOB_ID}/run" \
+                        -H "X-Rundeck-Auth-Token: $RUNDECK_TOKEN" \
+                        -H "Content-Type: application/json" \
+                        -d "{
+                          \\"options\\": {
+                            \\"workspace\\": \\"${WORKSPACE}\\",
+                            \\"image\\": \\"${IMAGE_PATH}\\",
+                            \\"tag\\": \\"latest\\",
+                            \\"namespace\\": \\"${NAMESPACE}\\",
+                            \\"deployment\\": \\"${DEPLOYMENT_NAME}\\",
+                            \\"container\\": \\"${CONTAINER_NAME}\\"
+                          }
+                        }"
+                    '''
+                }
+            }
+        }
 
 
     post {
@@ -420,17 +444,20 @@ IMAGE_PATH=${env.HARBOR_REGISTRY}/${env.HARBOR_PROJECT}/${env.IMAGE_NAME}
                 if (env.BRANCH_NAME == 'master') {
                     sshagent(credentials: ['github-ssh']) {
                         sh '''
-                          set -euo pipefail
+                          set -euxo pipefail
                           git config user.name "jenkins"
                           git config user.email "jenkins@local"
                           git add pom.xml core/pom.xml service-template/pom.xml quarkus-service-template/pom.xml chassis/pom.xml 2>/dev/null || true
                           if ! git diff --cached --quiet; then
                             git commit -m "Bump Maven version to ${APP_VERSION} [skip ci]"
                             REMOTE_URL=$(git remote get-url origin)
+                            echo "Current origin: $REMOTE_URL"
                             if echo "$REMOTE_URL" | grep -q '^https://github.com/'; then
                               SSH_URL=$(printf '%s' "$REMOTE_URL" | sed -E 's#https://github.com/#git@github.com:#')
                               git remote set-url origin "$SSH_URL"
+                              echo "Rewrote origin to SSH: $SSH_URL"
                             fi
+                            git remote -v
                             git push origin HEAD:${BRANCH_NAME}
                           else
                             echo "No pom version changes to commit."
@@ -442,6 +469,11 @@ IMAGE_PATH=${env.HARBOR_REGISTRY}/${env.HARBOR_PROJECT}/${env.IMAGE_NAME}
                 }
             }
             echo 'Pipeline completed successfully.'
+            script {
+                if (params.PACKAGE_ONLY) {
+                    echo 'PACKAGE_ONLY=true, so image build and deployment stages were skipped.'
+                }
+            }
             sh '''
               if [ -f target/.image-vars ]; then
                 . target/.image-vars
