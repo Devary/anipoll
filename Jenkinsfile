@@ -55,22 +55,22 @@ pipeline {
     }
 
     environment {
-        APP_NAME = ''
+        APP_NAME = 'anipoll'
         APP_VERSION = ''
-        BUILD_DIR = '.'
+        CORE_DIR = 'core'
         HARBOR_REGISTRY = '192.168.178.41:30002'
         RUNDECK_HOST = '192.168.178.41'
         RUNDECK_PORT = '4440'
         HARBOR_PROJECT = 'library'
-        IMAGE_NAME = ''
+        IMAGE_NAME = 'anipoll'
         IMAGE_TAG = ''
         PROJECT_TYPE = ''
         GRAALVM24_HOME = tool(name: 'graalvm24', type: 'hudson.model.JDK')
         HARBOR_PREFIX = "${HARBOR_REGISTRY}/${HARBOR_PROJECT}"
         FULL_IMAGE = ''
         LATEST_IMAGE = ''
-        DEPLOYMENT_NAME = ''
-        CONTAINER_NAME = ''
+        DEPLOYMENT_NAME = "${IMAGE_NAME}"
+        CONTAINER_NAME = "${IMAGE_NAME}"
         RUNDECK_JOB_ID = "1b180a49-b61b-4733-877e-03f3ea9f6939"
         NAMESPACE = 'default'
     }
@@ -86,7 +86,6 @@ pipeline {
         stage('Resolve Version') {
             steps {
                 script {
-                    sh 'mkdir -p target'
                     def manualVersion = params.MANUAL_VERSION?.trim()
                     def currentVersion = sh(
                         script: "mvn -B -ntp -q help:evaluate -Dexpression=project.version -DforceStdout",
@@ -120,104 +119,27 @@ pipeline {
             }
         }
 
-        stage('Resolve Project Layout') {
+        stage('Detect Project Type') {
             steps {
                 script {
-                    sh 'mkdir -p target'
-                    def rootPom = readFile('pom.xml')
-                    def remoteUrl = sh(script: 'git remote get-url origin', returnStdout: true).trim()
-                    def appName = remoteUrl.tokenize('/').last().replace('.git', '').replaceAll(/^.*:/, '')
-                    def buildDir = '.'
-                    def candidateModules = []
-
-                    if (rootPom.contains('<modules>')) {
-                        def matcher = rootPom =~ /<module>([^<]+)<\/module>/
-                        matcher.each { candidateModules << it[1].trim() }
+                    def pom = readFile("${env.CORE_DIR}/pom.xml")
+                    def projectType = 'java'
+                    if (pom.contains('quarkus-maven-plugin') || pom.contains('<artifactId>quarkus-bom</artifactId>')) {
+                        projectType = 'quarkus'
+                    } else if (pom.contains('spring-boot-maven-plugin') || pom.contains('org.springframework.boot')) {
+                        projectType = 'spring-boot'
                     }
 
-                    def moduleProjectType = { String pomText ->
-                        if ((pomText =~ /quarkus-maven-plugin|quarkus-bom|io\.quarkus/).find()) {
-                            return 'quarkus'
-                        }
-                        if ((pomText =~ /spring-boot-maven-plugin|org\.springframework\.boot/).find()) {
-                            return 'spring-boot'
-                        }
-                        return 'java'
-                    }
-
-                    def packagingOf = { String pomText ->
-                        def matcher = pomText =~ /<packaging>([^<]+)<\/packaging>/
-                        matcher.find() ? matcher.group(1).trim() : 'jar'
-                    }
-
-                    def rootProjectType = moduleProjectType(rootPom)
-                    def rootPackaging = packagingOf(rootPom)
-                    def projectType = rootProjectType
-
-                    echo "REMOTE_URL=${remoteUrl}"
-                    echo "CANDIDATE_MODULES=${candidateModules.join(',')}"
-                    echo "ROOT_PACKAGING=${rootPackaging}"
-                    echo "ROOT_PROJECT_TYPE=${rootProjectType}"
-
-                    if (candidateModules) {
-                        def realModules = candidateModules.findAll { module ->
-                            fileExists("${module}/pom.xml") && packagingOf(readFile("${module}/pom.xml")) != 'pom'
-                        }
-
-                        def existingModules = candidateModules.findAll { module -> fileExists("${module}/pom.xml") }
-                        echo "EXISTING_MODULES=${existingModules.join(',')}"
-                        echo "REAL_MODULES=${realModules.join(',')}"
-
-                        if (fileExists('core/pom.xml') && packagingOf(readFile('core/pom.xml')) != 'pom') {
-                            buildDir = 'core'
-                        } else {
-                            def preferredModule = realModules.find { module ->
-                                def modulePom = readFile("${module}/pom.xml")
-                                def moduleType = moduleProjectType(modulePom)
-                                if (moduleType != 'java') {
-                                    projectType = moduleType
-                                    return true
-                                }
-                                return false
-                            }
-
-                            if (preferredModule) {
-                                buildDir = preferredModule
-                            } else if (realModules) {
-                                buildDir = realModules[0]
-                            } else if (rootProjectType != 'java' && rootPackaging != 'pom') {
-                                buildDir = '.'
-                            } else if (existingModules) {
-                                buildDir = existingModules[0]
-                            } else {
-                                buildDir = candidateModules[0]
-                            }
-                        }
-                    }
-
-                    if (fileExists("${buildDir}/pom.xml")) {
-                        projectType = moduleProjectType(readFile("${buildDir}/pom.xml"))
-                    }
-
-                    env.APP_NAME = appName
-                    env.IMAGE_NAME = appName
-                    env.DEPLOYMENT_NAME = appName
-                    env.CONTAINER_NAME = appName
-                    env.BUILD_DIR = buildDir
                     env.PROJECT_TYPE = projectType
-
-                    writeFile file: 'target/.project-layout', text: "APP_NAME=${appName}\nBUILD_DIR=${buildDir}\nPROJECT_TYPE=${projectType}\nREMOTE_URL=${remoteUrl}\n"
-                    echo "APP_NAME=${appName}"
-                    echo "BUILD_DIR=${buildDir}"
+                    writeFile file: 'target/.project-type', text: "${projectType}\n"
                     echo "PROJECT_TYPE=${projectType}"
-                    sh "ls -la ${buildDir} || true"
                 }
             }
         }
 
         stage('Build Core') {
             steps {
-                dir("${env.BUILD_DIR}") {
+                dir("${env.CORE_DIR}") {
                     sh 'mvn -B -ntp clean package -DskipTests'
                 }
             }
@@ -229,34 +151,9 @@ pipeline {
             }
             steps {
                 script {
-                    def projectType = env.PROJECT_TYPE?.trim()
-                    def buildDir = env.BUILD_DIR?.trim() ?: '.'
-                    if (!projectType && fileExists('target/.project-layout')) {
-                        def layout = readFile('target/.project-layout')
-                        def typeLine = layout.readLines().find { it.startsWith('PROJECT_TYPE=') }
-                        def buildDirLine = layout.readLines().find { it.startsWith('BUILD_DIR=') }
-                        if (typeLine) {
-                            projectType = typeLine.split('=', 2)[1].trim()
-                            env.PROJECT_TYPE = projectType
-                        }
-                        if (buildDirLine) {
-                            buildDir = buildDirLine.split('=', 2)[1].trim()
-                            env.BUILD_DIR = buildDir
-                        }
-                    }
-                    if (!projectType && fileExists("${buildDir}/pom.xml")) {
-                        def modulePom = readFile("${buildDir}/pom.xml")
-                        if ((modulePom =~ /quarkus-maven-plugin|quarkus-bom|io\.quarkus/).find()) {
-                            projectType = 'quarkus'
-                        } else if ((modulePom =~ /spring-boot-maven-plugin|org\.springframework\.boot/).find()) {
-                            projectType = 'spring-boot'
-                        } else {
-                            projectType = 'java'
-                        }
-                        env.PROJECT_TYPE = projectType
-                    }
+                    def projectType = readFile('target/.project-type').trim()
                     if (projectType == 'quarkus') {
-                        dir(buildDir) {
+                        dir("${env.CORE_DIR}") {
                             withEnv(["JAVA_HOME=${env.GRAALVM24_HOME}", "PATH+GRAAL=${env.GRAALVM24_HOME}/bin"]) {
                                 sh 'mvn -B -ntp package -DskipTests -Dnative'
                             }
@@ -273,13 +170,13 @@ pipeline {
                 expression { return !params.SKIP_TESTS }
             }
             steps {
-                dir("${env.BUILD_DIR}") {
+                dir("${env.CORE_DIR}") {
                     sh 'mvn -B -ntp test'
                 }
             }
             post {
                 always {
-                    junit allowEmptyResults: true, testResults: "${env.BUILD_DIR}/target/surefire-reports/*.xml"
+                    junit allowEmptyResults: true, testResults: 'core/target/surefire-reports/*.xml'
                 }
             }
         }
@@ -290,80 +187,9 @@ pipeline {
             }
             steps {
                 script {
-                    def projectType = env.PROJECT_TYPE?.trim()
-                    def resolvedVersion = env.APP_VERSION?.trim()
-                    def appName = env.APP_NAME?.trim()
-                    def buildDir = env.BUILD_DIR?.trim() ?: '.'
-                    if (fileExists('target/.project-layout')) {
-                        def layout = readFile('target/.project-layout')
-                        if (!projectType) {
-                            def typeLine = layout.readLines().find { it.startsWith('PROJECT_TYPE=') }
-                            if (typeLine) {
-                                projectType = typeLine.split('=', 2)[1].trim()
-                                env.PROJECT_TYPE = projectType
-                            }
-                        }
-                        if (!env.BUILD_DIR?.trim() || buildDir == '.') {
-                            def buildDirLine = layout.readLines().find { it.startsWith('BUILD_DIR=') }
-                            if (buildDirLine) {
-                                buildDir = buildDirLine.split('=', 2)[1].trim()
-                                env.BUILD_DIR = buildDir
-                            }
-                        }
-                    }
-                    if (!projectType && fileExists("${buildDir}/pom.xml")) {
-                        def modulePom = readFile("${buildDir}/pom.xml")
-                        if ((modulePom =~ /quarkus-maven-plugin|quarkus-bom|io\.quarkus/).find()) {
-                            projectType = 'quarkus'
-                        } else if ((modulePom =~ /spring-boot-maven-plugin|org\.springframework\.boot/).find()) {
-                            projectType = 'spring-boot'
-                        } else {
-                            projectType = 'java'
-                        }
-                        env.PROJECT_TYPE = projectType
-                    }
-
-                    if (!resolvedVersion) {
-                        resolvedVersion = sh(
-                            script: "mvn -B -ntp -q help:evaluate -Dexpression=project.version -DforceStdout",
-                            returnStdout: true
-                        ).trim()
-                    }
-                    if (!appName) {
-                        def remoteUrl = sh(script: 'git remote get-url origin', returnStdout: true).trim()
-                        appName = remoteUrl.tokenize('/').last().replace('.git', '').replaceAll(/^.*:/, '')
-                        env.APP_NAME = appName
-                    }
+                    def projectType = readFile('target/.project-type').trim()
+                    def resolvedVersion = readFile('target/.resolved-version').trim()
                     env.APP_VERSION = resolvedVersion
-
-                    def effectiveBuildDir = sh(
-                        script: """
-                            set -euo pipefail
-                            candidates=()
-                            [ -n '${buildDir}' ] && candidates+=('${buildDir}')
-                            [ '${buildDir}' != '.' ] || candidates+=('.')
-                            [ -d core/target ] && candidates+=('core')
-                            for d in */target; do
-                              [ -d "\$d" ] || continue
-                              candidates+=("\${d%/target}")
-                            done
-                            seen=' '
-                            for c in "\${candidates[@]}"; do
-                              case "\$seen" in
-                                *" \$c "*) continue ;;
-                              esac
-                              seen="\$seen\$c "
-                              if find "\$c/target" -maxdepth 1 -type f -name '*.jar' 2>/dev/null | grep -q . || find "\$c/target" -maxdepth 1 -type f -perm -111 2>/dev/null | grep -q .; then
-                                printf '%s' "\$c"
-                                exit 0
-                              fi
-                            done
-                            exit 1
-                        """,
-                        returnStdout: true
-                    ).trim()
-
-                    echo "PACKAGE_BUILD_DIR=${effectiveBuildDir}"
 
                     if (projectType == 'quarkus' && params.GENERATE_NATIVE_IMAGE) {
                         sh """
@@ -372,17 +198,16 @@ pipeline {
                             rm -rf target/package
                             mkdir -p target/package/apps-repo
 
-                            NATIVE_PATH=\$(find ${effectiveBuildDir}/target -maxdepth 1 -type f -perm -111 ! -name '*.jar' | head -n 1)
+                            NATIVE_PATH=\$(find core/target -maxdepth 1 -type f -perm -111 ! -name '*.jar' | head -n 1)
 
                             if [ -z "\$NATIVE_PATH" ]; then
-                              echo "No Quarkus native binary found in ${effectiveBuildDir}/target"
-                              find . -maxdepth 3 -type d -name target -print || true
+                              echo "No Quarkus native binary found in core/target"
                               exit 1
                             fi
 
-                            cp "\$NATIVE_PATH" "target/package/apps-repo/${appName}"
+                            cp "\$NATIVE_PATH" "target/package/apps-repo/${APP_NAME}"
                             cd target/package
-                            zip -r "../${appName}-\${APP_VERSION}.zip" .
+                            zip -r "../${APP_NAME}-\${APP_VERSION}.zip" .
                         """
                     } else if (projectType == 'quarkus') {
                         sh """
@@ -391,17 +216,16 @@ pipeline {
                             rm -rf target/package
                             mkdir -p target/package/apps-repo
 
-                            JAR_PATH=\$(find ${effectiveBuildDir}/target -maxdepth 1 -type f -name '*.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar' ! -name '*-runner.jar' | head -n 1)
+                            JAR_PATH=\$(find core/target -maxdepth 1 -type f -name '*.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar' ! -name '*-runner.jar' | head -n 1)
 
                             if [ -z "\$JAR_PATH" ]; then
-                              echo "No Quarkus jar found in ${effectiveBuildDir}/target"
-                              find . -maxdepth 3 -type d -name target -print || true
+                              echo "No Quarkus jar found in core/target"
                               exit 1
                             fi
 
-                            cp "\$JAR_PATH" "target/package/apps-repo/${appName}.jar"
+                            cp "\$JAR_PATH" "target/package/apps-repo/${APP_NAME}.jar"
                             cd target/package
-                            zip -r "../${appName}-\${APP_VERSION}.zip" .
+                            zip -r "../${APP_NAME}-\${APP_VERSION}.zip" .
                         """
                     } else if (projectType == 'spring-boot') {
                         sh """
@@ -410,17 +234,16 @@ pipeline {
                             rm -rf target/package
                             mkdir -p target/package/apps-repo
 
-                            JAR_PATH=\$(find ${effectiveBuildDir}/target -maxdepth 1 -type f -name '*.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar' | head -n 1)
+                            JAR_PATH=\$(find core/target -maxdepth 1 -type f -name '*.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar' | head -n 1)
 
                             if [ -z "\$JAR_PATH" ]; then
-                              echo "No Spring Boot jar found in ${effectiveBuildDir}/target"
-                              find . -maxdepth 3 -type d -name target -print || true
+                              echo "No Spring Boot jar found in core/target"
                               exit 1
                             fi
 
-                            cp "\$JAR_PATH" "target/package/apps-repo/${appName}.jar"
+                            cp "\$JAR_PATH" "target/package/apps-repo/${APP_NAME}.jar"
                             cd target/package
-                            zip -r "../${appName}-\${APP_VERSION}.zip" .
+                            zip -r "../${APP_NAME}-\${APP_VERSION}.zip" .
                         """
                     } else {
                         sh """
@@ -429,17 +252,16 @@ pipeline {
                             rm -rf target/package
                             mkdir -p target/package/apps-repo
 
-                            JAR_PATH=\$(find ${effectiveBuildDir}/target -maxdepth 1 -type f -name '*.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar' ! -name '*-runner.jar' | head -n 1)
+                            JAR_PATH=\$(find core/target -maxdepth 1 -type f -name '*.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar' ! -name '*-runner.jar' | head -n 1)
 
                             if [ -z "\$JAR_PATH" ]; then
-                              echo "No build jar found in ${effectiveBuildDir}/target"
-                              find . -maxdepth 3 -type d -name target -print || true
+                              echo "No build jar found in core/target"
                               exit 1
                             fi
 
-                            cp "\$JAR_PATH" "target/package/apps-repo/${appName}.jar"
+                            cp "\$JAR_PATH" "target/package/apps-repo/${APP_NAME}.jar"
                             cd target/package
-                            zip -r "../${appName}-\${APP_VERSION}.zip" .
+                            zip -r "../${APP_NAME}-\${APP_VERSION}.zip" .
                         """
                     }
                 }
@@ -449,23 +271,11 @@ pipeline {
 
         stage('Deploy to JFrog') {
             when {
-                allOf {
-                    branch 'master'
-                    expression { return !params.PACKAGE_ONLY }
-                }
+                branch 'master'
             }
             steps {
-                script {
-                    def deployConfigured = sh(
-                        script: "(grep -q '<distributionManagement>' pom.xml || grep -q '<id>use-jfrog</id>' pom.xml) && echo yes || echo no",
-                        returnStdout: true
-                    ).trim()
-
-                    if (deployConfigured == 'yes') {
-                        sh 'mvn -B -ntp -Puse-jfrog deploy -DskipTests'
-                    } else {
-                        echo 'Skipping JFrog deploy: no distributionManagement or use-jfrog profile found in root pom.xml'
-                    }
+                dir("${env.CORE_DIR}") {
+                    sh 'mvn -B -ntp -Puse-jfrog deploy -DskipTests'
                 }
             }
         }
@@ -496,8 +306,8 @@ CMD ["sh", "-c", "echo hello from jenkins harbor test && sleep 3600"]
                   echo "IMAGE_TAG=$IMAGE_TAG"
                   echo "LOCAL_IMAGE=$LOCAL_IMAGE"
                   echo "FULL_IMAGE=$FULL_IMAGE"
-                  echo "DEPLOYMENT_NAME=$DEPLOYMENT_NAME"
-                  echo "CONTAINER_NAME=$CONTAINER_NAME"
+                  echo "DEPLOYMENT_NAME=$IMAGE_NAME"
+                  echo "CONTAINER_NAME=$IMAGE_NAME"
                 '''
             }
         }
@@ -508,40 +318,23 @@ CMD ["sh", "-c", "echo hello from jenkins harbor test && sleep 3600"]
             }
             steps {
                 script {
-                    sh 'mkdir -p target'
-                    def resolvedVersion = env.APP_VERSION?.trim()
-                    if (!resolvedVersion) {
-                        resolvedVersion = sh(
-                            script: "mvn -B -ntp -q help:evaluate -Dexpression=project.version -DforceStdout",
-                            returnStdout: true
-                        ).trim()
-                    }
+                    def resolvedVersion = sh(
+                        script: "mvn -B -ntp -q help:evaluate -Dexpression=project.version -DforceStdout",
+                        returnStdout: true
+                    ).trim()
 
                     if (!resolvedVersion || resolvedVersion == 'null') {
                         error("Could not resolve Maven project version. Got: '${resolvedVersion}'")
                     }
 
-                    def appName = env.APP_NAME?.trim()
-                    if (!appName) {
-                        def remoteUrl = sh(script: 'git remote get-url origin', returnStdout: true).trim()
-                        appName = remoteUrl.tokenize('/').last().replace('.git', '').replaceAll(/^.*:/, '')
-                        env.APP_NAME = appName
-                    }
-                    env.IMAGE_NAME = appName
-                    env.DEPLOYMENT_NAME = appName
-                    env.CONTAINER_NAME = appName
                     env.APP_VERSION = resolvedVersion
                     env.IMAGE_TAG = resolvedVersion
 
-                    writeFile file: 'target/.image-vars', text: """APP_NAME=${appName}
-DEPLOYMENT_NAME=${appName}
-CONTAINER_NAME=${appName}
-IMAGE_NAME=${appName}
-IMAGE_TAG=${resolvedVersion}
-LOCAL_IMAGE=${appName}:${resolvedVersion}
-FULL_IMAGE=${env.HARBOR_REGISTRY}/${env.HARBOR_PROJECT}/${appName}:${resolvedVersion}
-LATEST_IMAGE=${env.HARBOR_REGISTRY}/${env.HARBOR_PROJECT}/${appName}:latest
-IMAGE_PATH=${env.HARBOR_REGISTRY}/${env.HARBOR_PROJECT}/${appName}
+                    writeFile file: 'target/.image-vars', text: """IMAGE_TAG=${resolvedVersion}
+LOCAL_IMAGE=${env.IMAGE_NAME}:${resolvedVersion}
+FULL_IMAGE=${env.HARBOR_REGISTRY}/${env.HARBOR_PROJECT}/${env.IMAGE_NAME}:${resolvedVersion}
+LATEST_IMAGE=${env.HARBOR_REGISTRY}/${env.HARBOR_PROJECT}/${env.IMAGE_NAME}:latest
+IMAGE_PATH=${env.HARBOR_REGISTRY}/${env.HARBOR_PROJECT}/${env.IMAGE_NAME}
 """
 
                     sh 'cat target/.image-vars'
@@ -626,7 +419,7 @@ IMAGE_PATH=${env.HARBOR_REGISTRY}/${env.HARBOR_PROJECT}/${appName}
 
                       echo "IMAGE_PATH=$IMAGE_PATH"
                       echo "IMAGE_TAG=$IMAGE_TAG"
-                      echo "NAMESPACE=$NAMESPACE"
+                      echo "NAMESPACE="
                       echo "DEPLOYMENT_NAME=$DEPLOYMENT_NAME"
                       echo "CONTAINER_NAME=$CONTAINER_NAME"
 
@@ -656,15 +449,12 @@ IMAGE_PATH=${env.HARBOR_REGISTRY}/${env.HARBOR_PROJECT}/${appName}
                     sshagent(credentials: ['github-ssh']) {
                         sh '''
                           set -euxo pipefail
-                          RESOLVED_VERSION=$(cat target/.resolved-version 2>/dev/null || true)
-                          if [ -z "$RESOLVED_VERSION" ]; then
-                            RESOLVED_VERSION=$(mvn -B -ntp -q help:evaluate -Dexpression=project.version -DforceStdout)
-                          fi
+                          RESOLVED_VERSION=$(cat target/.resolved-version)
                           git config user.name "jenkins"
                           git config user.email "jenkins@local"
-                          git add pom.xml */pom.xml */*/pom.xml 2>/dev/null || true
+                          git add pom.xml core/pom.xml service-template/pom.xml quarkus-service-template/pom.xml chassis/pom.xml 2>/dev/null || true
                           if ! git diff --cached --quiet; then
-                            git commit -m "Bump Maven version to $RESOLVED_VERSION [skip ci]"
+                            git commit -m "Bump Maven version to ${RESOLVED_VERSION} [skip ci]"
                             REMOTE_URL=$(git remote get-url origin)
                             echo "Current origin: $REMOTE_URL"
                             if echo "$REMOTE_URL" | grep -q '^https://github.com/'; then
@@ -701,7 +491,7 @@ IMAGE_PATH=${env.HARBOR_REGISTRY}/${env.HARBOR_PROJECT}/${appName}
             echo 'Pipeline failed. Check compile/test logs above.'
         }
         always {
-            sh 'docker logout ${HARBOR_REGISTRY} || true'
-        }
+         sh 'docker logout ${HARBOR_REGISTRY} || true'
+       }
     }
 }
