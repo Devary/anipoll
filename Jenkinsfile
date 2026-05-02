@@ -55,22 +55,22 @@ pipeline {
     }
 
     environment {
-        APP_NAME = 'anipoll'
+        APP_NAME = ''
         APP_VERSION = ''
         CORE_DIR = 'core'
         HARBOR_REGISTRY = '192.168.178.41:30002'
         RUNDECK_HOST = '192.168.178.41'
         RUNDECK_PORT = '4440'
         HARBOR_PROJECT = 'library'
-        IMAGE_NAME = 'anipoll'
+        IMAGE_NAME = ''
         IMAGE_TAG = ''
         PROJECT_TYPE = ''
         GRAALVM24_HOME = tool(name: 'graalvm24', type: 'hudson.model.JDK')
         HARBOR_PREFIX = "${HARBOR_REGISTRY}/${HARBOR_PROJECT}"
         FULL_IMAGE = ''
         LATEST_IMAGE = ''
-        DEPLOYMENT_NAME = "${IMAGE_NAME}"
-        CONTAINER_NAME = "${IMAGE_NAME}"
+        DEPLOYMENT_NAME = ''
+        CONTAINER_NAME = ''
         RUNDECK_JOB_ID = "1b180a49-b61b-4733-877e-03f3ea9f6939"
         NAMESPACE = 'default'
     }
@@ -80,6 +80,19 @@ pipeline {
             steps {
                 checkout scm
                 sh 'git status --short || true'
+            }
+        }
+
+        stage('Resolve Project Name') {
+            steps {
+                script {
+                    def projectName = sh(script: 'basename "$(git rev-parse --show-toplevel)"', returnStdout: true).trim()
+                    env.APP_NAME = projectName
+                    env.IMAGE_NAME = projectName
+                    env.DEPLOYMENT_NAME = projectName
+                    env.CONTAINER_NAME = projectName
+                    echo "PROJECT_NAME=${projectName}"
+                }
             }
         }
 
@@ -331,6 +344,8 @@ CMD ["sh", "-c", "echo hello from jenkins harbor test && sleep 3600"]
                     env.IMAGE_TAG = resolvedVersion
 
                     writeFile file: 'target/.image-vars', text: """IMAGE_TAG=${resolvedVersion}
+DEPLOYMENT_NAME=${env.DEPLOYMENT_NAME}
+CONTAINER_NAME=${env.CONTAINER_NAME}
 LOCAL_IMAGE=${env.IMAGE_NAME}:${resolvedVersion}
 FULL_IMAGE=${env.HARBOR_REGISTRY}/${env.HARBOR_PROJECT}/${env.IMAGE_NAME}:${resolvedVersion}
 LATEST_IMAGE=${env.HARBOR_REGISTRY}/${env.HARBOR_PROJECT}/${env.IMAGE_NAME}:latest
