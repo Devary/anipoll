@@ -60,7 +60,7 @@ pipeline {
         CORE_DIR = 'core'
         RUNDECK_HOST = '192.168.178.41'
         RUNDECK_PORT = '4440'
-        IMAGE_NAME = ${APP_NAME}
+        IMAGE_NAME = "${APP_NAME}"
         IMAGE_TAG = ''
         PROJECT_TYPE = ''
         GRAALVM24_HOME = tool(name: 'graalvm24', type: 'hudson.model.JDK')
