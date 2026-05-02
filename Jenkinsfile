@@ -69,8 +69,8 @@ pipeline {
         HARBOR_PREFIX = "${HARBOR_REGISTRY}/${HARBOR_PROJECT}"
         FULL_IMAGE = ''
         LATEST_IMAGE = ''
-        DEPLOYMENT_NAME = ${APP_NAME}
-        CONTAINER_NAME = ${APP_NAME}
+        DEPLOYMENT_NAME = "${APP_NAME}"
+        CONTAINER_NAME = "${APP_NAME}"
         RUNDECK_JOB_ID = "1b180a49-b61b-4733-877e-03f3ea9f6939"
         NAMESPACE = 'default'
     }
