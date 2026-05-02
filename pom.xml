@@ -4,7 +4,7 @@
 
   <groupId>com.anipoll</groupId>
   <artifactId>anipoll</artifactId>
-  <version>5.5.53</version>
+  <version>5.5.54</version>
   <packaging>pom</packaging>
 
   <name>anipoll</name>
