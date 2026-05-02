@@ -58,19 +58,19 @@ pipeline {
         APP_NAME = 'anipoll'
         APP_VERSION = ''
         CORE_DIR = 'core'
-        HARBOR_REGISTRY = '192.168.178.41:30002'
         RUNDECK_HOST = '192.168.178.41'
         RUNDECK_PORT = '4440'
-        HARBOR_PROJECT = 'library'
-        IMAGE_NAME = 'anipoll'
+        IMAGE_NAME = ${APP_NAME}
         IMAGE_TAG = ''
         PROJECT_TYPE = ''
         GRAALVM24_HOME = tool(name: 'graalvm24', type: 'hudson.model.JDK')
+        HARBOR_REGISTRY = '192.168.178.41:30002'
+        HARBOR_PROJECT = 'library'
         HARBOR_PREFIX = "${HARBOR_REGISTRY}/${HARBOR_PROJECT}"
         FULL_IMAGE = ''
         LATEST_IMAGE = ''
-        DEPLOYMENT_NAME = "${IMAGE_NAME}"
-        CONTAINER_NAME = "${IMAGE_NAME}"
+        DEPLOYMENT_NAME = ${APP_NAME}
+        CONTAINER_NAME = ${APP_NAME}
         RUNDECK_JOB_ID = "1b180a49-b61b-4733-877e-03f3ea9f6939"
         NAMESPACE = 'default'
     }
