@@ -4,7 +4,7 @@
     <parent>
         <groupId>com.anipoll</groupId>
         <artifactId>anipoll</artifactId>
-        <version>1.2.6</version>
+        <version>5.5.5</version>
     </parent>
 
     <artifactId>service-template</artifactId>
