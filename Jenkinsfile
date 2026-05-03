@@ -138,9 +138,11 @@ pipeline {
         }
 
         stage('SonarQube Analysis') {
-          withSonarQubeEnv() {
-            sh "mvn clean verify org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -Dsonar.projectKey=anipoll -Dsonar.projectName='anipoll'"
-          }
+            steps{
+                 withSonarQubeEnv() {
+                   sh "mvn clean verify org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -Dsonar.projectKey=anipoll -Dsonar.projectName='anipoll'"
+                 }
+            }
         }
 
         stage('Build Core') {
