@@ -137,6 +137,13 @@ pipeline {
             }
         }
 
+        stage('SonarQube Analysis') {
+          def mvn = tool 'Default Maven';
+          withSonarQubeEnv() {
+            sh "${mvn}/bin/mvn clean verify org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -Dsonar.projectKey=anipoll -Dsonar.projectName='anipoll'"
+          }
+        }
+
         stage('Build Core') {
             steps {
                 dir("${env.CORE_DIR}") {
