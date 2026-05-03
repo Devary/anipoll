@@ -113,7 +113,8 @@ pipeline {
 
                     env.APP_VERSION = targetVersion
                     env.IMAGE_TAG = targetVersion
-                    writeFile file: 'target/.resolved-version', text: "${targetVersion}\n"
+                    sh 'mkdir -p .jenkins'
+                    writeFile file: '.jenkins/.resolved-version', text: "${targetVersion}\n"
                     echo "Resolved Maven version: ${targetVersion}"
                 }
             }
@@ -131,7 +132,8 @@ pipeline {
                     }
 
                     env.PROJECT_TYPE = projectType
-                    writeFile file: 'target/.project-type', text: "${projectType}\n"
+                    sh 'mkdir -p .jenkins'
+                    writeFile file: '.jenkins/.project-type', text: "${projectType}\n"
                     echo "PROJECT_TYPE=${projectType}"
                 }
             }
@@ -140,7 +142,7 @@ pipeline {
         stage('SonarQube Analysis') {
             steps{
                  withSonarQubeEnv('SonarQube') {
-                   sh "mvn clean verify org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -Dsonar.projectKey=anipoll -Dsonar.projectName='anipoll'"
+                   sh "mvn clean verify org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -Dsonar.projectKey=${APP_NAME} -Dsonar.projectName='${APP_NAME}'"
                  }
             }
         }
@@ -159,7 +161,7 @@ pipeline {
             }
             steps {
                 script {
-                    def projectType = readFile('target/.project-type').trim()
+                    def projectType = readFile('.jenkins/.project-type').trim()
                     if (projectType == 'quarkus') {
                         dir("${env.CORE_DIR}") {
                             withEnv(["JAVA_HOME=${env.GRAALVM24_HOME}", "PATH+GRAAL=${env.GRAALVM24_HOME}/bin"]) {
@@ -195,8 +197,8 @@ pipeline {
             }
             steps {
                 script {
-                    def projectType = readFile('target/.project-type').trim()
-                    def resolvedVersion = readFile('target/.resolved-version').trim()
+                    def projectType = readFile('.jenkins/.project-type').trim()
+                    def resolvedVersion = readFile('.jenkins/.resolved-version').trim()
                     env.APP_VERSION = resolvedVersion
 
                     if (projectType == 'quarkus' && params.GENERATE_NATIVE_IMAGE) {
@@ -338,14 +340,15 @@ CMD ["sh", "-c", "echo hello from jenkins harbor test && sleep 3600"]
                     env.APP_VERSION = resolvedVersion
                     env.IMAGE_TAG = resolvedVersion
 
-                    writeFile file: 'target/.image-vars', text: """IMAGE_TAG=${resolvedVersion}
+                    sh 'mkdir -p .jenkins'
+                    writeFile file: '.jenkins/.image-vars', text: """IMAGE_TAG=${resolvedVersion}
 LOCAL_IMAGE=${env.IMAGE_NAME}:${resolvedVersion}
 FULL_IMAGE=${env.HARBOR_REGISTRY}/${env.HARBOR_PROJECT}/${env.IMAGE_NAME}:${resolvedVersion}
 LATEST_IMAGE=${env.HARBOR_REGISTRY}/${env.HARBOR_PROJECT}/${env.IMAGE_NAME}:latest
 IMAGE_PATH=${env.HARBOR_REGISTRY}/${env.HARBOR_PROJECT}/${env.IMAGE_NAME}
 """
 
-                    sh 'cat target/.image-vars'
+                    sh 'cat .jenkins/.image-vars'
                 }
             }
         }
@@ -357,7 +360,7 @@ IMAGE_PATH=${env.HARBOR_REGISTRY}/${env.HARBOR_PROJECT}/${env.IMAGE_NAME}
             steps {
                 sh '''
                   set -euo pipefail
-                  . target/.image-vars
+                  . .jenkins/.image-vars
                   docker build -t "$LOCAL_IMAGE" .
                 '''
             }
@@ -387,7 +390,7 @@ IMAGE_PATH=${env.HARBOR_REGISTRY}/${env.HARBOR_PROJECT}/${env.IMAGE_NAME}
             steps {
                 sh '''
                   set -euo pipefail
-                  . target/.image-vars
+                  . .jenkins/.image-vars
                   docker tag "$LOCAL_IMAGE" "$FULL_IMAGE"
                 '''
             }
@@ -400,7 +403,7 @@ IMAGE_PATH=${env.HARBOR_REGISTRY}/${env.HARBOR_PROJECT}/${env.IMAGE_NAME}
             steps {
                 sh '''
                   set -euo pipefail
-                  . target/.image-vars
+                  . .jenkins/.image-vars
 
                   if docker manifest inspect "$FULL_IMAGE" >/dev/null 2>&1; then
                     echo "Image already exists in Harbor, skipping version push: $FULL_IMAGE"
@@ -423,7 +426,7 @@ IMAGE_PATH=${env.HARBOR_REGISTRY}/${env.HARBOR_PROJECT}/${env.IMAGE_NAME}
                     sh '''
                       set -euo pipefail
 
-                      . target/.image-vars
+                      . .jenkins/.image-vars
 
                       echo "IMAGE_PATH=$IMAGE_PATH"
                       echo "IMAGE_TAG=$IMAGE_TAG"
@@ -457,7 +460,7 @@ IMAGE_PATH=${env.HARBOR_REGISTRY}/${env.HARBOR_PROJECT}/${env.IMAGE_NAME}
                     sshagent(credentials: ['github-ssh']) {
                         sh '''
                           set -euxo pipefail
-                          RESOLVED_VERSION=$(cat target/.resolved-version)
+                          RESOLVED_VERSION=$(cat .jenkins/.resolved-version)
                           git config user.name "jenkins"
                           git config user.email "jenkins@local"
                           git add pom.xml core/pom.xml service-template/pom.xml quarkus-service-template/pom.xml chassis/pom.xml 2>/dev/null || true
@@ -488,8 +491,8 @@ IMAGE_PATH=${env.HARBOR_REGISTRY}/${env.HARBOR_PROJECT}/${env.IMAGE_NAME}
                 }
             }
             sh '''
-              if [ -f target/.image-vars ]; then
-                . target/.image-vars
+              if [ -f .jenkins/.image-vars ]; then
+                . .jenkins/.image-vars
                 echo "Pushed image: $FULL_IMAGE"
                 echo "Latest image: $LATEST_IMAGE"
               fi
